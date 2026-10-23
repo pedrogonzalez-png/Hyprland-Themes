@@ -18,7 +18,7 @@ Character-inspired themes for **Hyprland + Quickshell (illogical-impulse / end4-
 
 These themes were designed on top of two existing projects:
 
-1. **[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)** — original illogical-impulse environment (Hyprland, Quickshell and supporting tools). Follow its **[official installation instructions](https://ii.clsty.link/tr/ii-qs/01setup/)**. Its interactive setup installs system packages and desktop configuration, so review the instructions and backups before running it.
+1. **[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)** — original illogical-impulse environment (Hyprland, Quickshell and supporting tools). Follow its **[official installation instructions](https://ii.clsty.link/)**. Its interactive setup installs system packages and desktop configuration, so review the instructions and backups before running it.
 2. **[pctrade/end4-pC](https://github.com/pctrade/end4-pC)** — the customized Quickshell interface that our themes target. It **requires illogical-impulse to be installed first**.
 
 Once the original illogical-impulse base is running, install the end4-pC shell (only if not already present):
