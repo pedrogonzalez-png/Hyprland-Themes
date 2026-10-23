@@ -14,8 +14,9 @@ BACKUP_ROOT="$HOME/.local/share/Hyprland-Themes/backups"
 
 usage() {
   cat <<'HELP'
-Usage: bash install-desktop.sh --check | --apply
+Usage: bash install-desktop.sh --prepare-base | --check | --apply
 
+--prepare-base: clone and pin end4-pC if it is NOT installed yet.
 --check: read-only validation. Does NOT install or modify your desktop.
 --apply: requires confirmation; backs up your existing configuration before
          copying public dotfiles and applying the end4-pC patch.
@@ -27,11 +28,12 @@ Requirements:
 
 Private Controller Mode files are NOT bundled, installed or modified.
 Wallpaper images are NOT bundled. Services are copied but NOT enabled.
+After --apply, opt in with: systemctl --user enable --now end4-wallpaper-theme.path
 HELP
 }
 
 case "$MODE" in
-  --check|--apply) ;;
+  --prepare-base|--check|--apply) ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
 esac
@@ -46,7 +48,6 @@ note() { printf '%s\n' "$*"; }
 [[ -d "$ROOT/dots/.config/hypr/hyprland" ]] || error 'Missing exported Hyprland configuration.'
 [[ -f "$ROOT/install.sh" ]] || error 'Missing theme installer.'
 [[ -d "$II" ]] || error "Original illogical-impulse not found at $II. Install upstream first."
-[[ -d "$QS/.git" || -f "$QS/.git" ]] || error "Original end4-pC Git checkout not found at $QS. Install upstream first."
 
 for program in git bash python3; do
   command -v "$program" >/dev/null 2>&1 || error "Missing command: $program"
@@ -54,6 +55,26 @@ done
 
 BASE="$(tr -d '\r\n\t ' < "$BASE_FILE")"
 [[ "$BASE" =~ ^[0-9a-fA-F]{40}$ ]] || error 'Base commit file does not contain a full 40-digit SHA.'
+
+if [[ "$MODE" == '--prepare-base' ]]; then
+  [[ ! -e "$QS" && ! -L "$QS" ]] || error "Destination already exists; refusing to replace it: $QS"
+  parent="$(dirname -- "$QS")"
+  mkdir -p -- "$parent"
+  temporary="$(mktemp -d "$parent/.end4-pC-install.XXXXXXXX")"
+  trap 'rm -rf -- "$temporary"' EXIT
+  git clone --quiet "${END4_PC_SOURCE:-https://github.com/pctrade/end4-pC.git}" "$temporary/end4-pC"
+  git -C "$temporary/end4-pC" cat-file -e "${BASE}^{commit}" || error 'Pinned commit unavailable in upstream clone.'
+  git -C "$temporary/end4-pC" checkout --quiet --detach "$BASE"
+  mv -- "$temporary/end4-pC" "$QS"
+  note "Pinned end4-pC prepared at: $QS"
+  note 'Next: bash install-desktop.sh --check'
+  exit 0
+fi
+
+[[ -d "$QS/.git" || -f "$QS/.git" ]] || error "end4-pC Git checkout not found at $QS. Run --prepare-base or follow upstream instructions."
+for theme in changli hiyuki emilia furina hotline-miami; do
+  [[ -f "$ROOT/end4-pC/$theme.json" && -f "$ROOT/fastfetch/$theme.json" ]] || error "Missing color theme: $theme"
+done
 
 # Refuse to publish or install private paths accidentally copied to the public bundle.
 if command -v rg >/dev/null 2>&1; then
@@ -77,7 +98,36 @@ git -C "$QS" cat-file -e "${BASE}^{commit}" || error 'Pinned upstream base commi
 # Dry-run against a pristine, detached work copy. Do not test on (or modify)
 # the user's active customized Quickshell checkout.
 STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/hyprland-themes-check.XXXXXXXX")"
-trap 'rm -rf -- "$STAGE_ROOT"' EXIT
+install_started=0
+backup=''
+on_exit() {
+  local code=$?
+  trap - EXIT
+  rm -rf -- "$STAGE_ROOT"
+  if [[ "$code" -ne 0 && "$install_started" -eq 1 ]]; then
+    note 'Install failed. Attempting to restore the original configuration...'
+    set +e
+    if [[ -f "$backup/created-files.bin" ]]; then
+      while IFS= read -r -d '' installed_file; do
+        case "$installed_file" in "$HOME"/.config/*|"$HOME"/.local/bin/*) rm -f -- "$installed_file" ;; esac
+      done < "$backup/created-files.bin"
+    fi
+    if [[ -d "$backup/originals" ]]; then
+      while IFS= read -r -d '' original_file; do
+        relative="${original_file#"$backup/originals/"}"
+        restored="$HOME/$relative"
+        mkdir -p -- "$(dirname -- "$restored")"
+        cp -a -- "$original_file" "$restored"
+      done < <(find "$backup/originals" -type f -print0)
+    fi
+    if [[ -d "$backup/quickshell/end4-pC" ]]; then
+      mv -- "$QS" "$backup/failed-end4-pC" && cp -a -- "$backup/quickshell/end4-pC" "$QS"
+    fi
+    note "Recovery attempted; inspect backup: $backup"
+  fi
+  exit "$code"
+}
+trap on_exit EXIT
 STAGE_QS="$STAGE_ROOT/end4-pC"
 git clone --quiet --no-hardlinks -- "$QS" "$STAGE_QS"
 git -C "$STAGE_QS" checkout --quiet --detach "$BASE"
@@ -138,14 +188,18 @@ mkdir -p "$backup"
 note 'Backing up existing end4-pC checkout...'
 mkdir -p "$backup/quickshell"
 cp -a -- "$QS" "$backup/quickshell/end4-pC"
+install_started=1
 
 backup_and_copy() {
   local from="$1" to="$2" rel="$3" old="$backup/originals/$rel"
   [[ ! -L "$from" && -f "$from" ]] || error "Unexpected non-file or link: $from"
   [[ ! -L "$to" ]] || error "Refusing to replace symlink: $to"
   if [[ -e "$to" ]]; then
+    [[ -f "$to" ]] || error "Refusing to overwrite non-file destination: $to"
     mkdir -p "$(dirname -- "$old")"
     cp -a -- "$to" "$old"
+  else
+    printf '%s\\0' "$to" >> "$backup/created-files.bin"
   fi
   mkdir -p "$(dirname -- "$to")"
   cp -p -- "$from" "$to"
@@ -176,8 +230,12 @@ if [[ -d "$source_bin" ]]; then
   done < <(find "$source_bin" -type f -print0)
 fi
 
-# Theme installer already does backup on a per-theme basis.
-bash "$ROOT/install.sh" --all
+# Install themes through the same backup/rollback mechanism as the other dotfiles.
+for theme in changli hiyuki emilia furina hotline-miami; do
+  backup_and_copy "$ROOT/end4-pC/$theme.json" "$II/schemes/$theme.json" ".config/illogical-impulse/schemes/$theme.json"
+  backup_and_copy "$ROOT/fastfetch/$theme.json" "$HOME/.config/fastfetch/themes/$theme.json" ".config/fastfetch/themes/$theme.json"
+done
+install_started=0
 
 note "Installed. Backup directory: $backup"
 note 'Theme systemd units are present, but NOT enabled.'

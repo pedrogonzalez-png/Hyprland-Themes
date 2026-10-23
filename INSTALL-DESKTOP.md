@@ -1,32 +1,79 @@
-# Hyprland-Themes — instalador de personalizações (prévia)
+# Instalação das personalizações do Hyprland-Themes (prévia)
 
-Este pacote acompanha o repositório local `end4-pC-character-themes` e requer que os diretórios `dots/`, `overrides/` e `install.sh` estejam presentes ao lado de `install-desktop.sh`.
+Este instalador **não substitui a instalação oficial do Arch, Hyprland ou end-4**. Ele configura o desktop sobre o [illogical-impulse](https://github.com/end-4/dots-hyprland) existente e a versão exata do [pctrade/end4-pC](https://github.com/pctrade/end4-pC) usada para construir nosso patch.
 
-**Atenção:** esta versão aplica personalizações sobre o **illogical-impulse + end4-pC previamente instalados**. Ela **não instala o Arch, Hyprland ou todas as dependências do end-4 do zero**. Para a base original, consulte os projetos [end-4/dots-hyprland](https://github.com/end-4/dots-hyprland) e [pctrade/end4-pC](https://github.com/pctrade/end4-pC).
+## Pré-requisitos e limitações
 
-## Primeiro teste — sem alterações
+- Arch com end-4/illogical-impulse instalado seguindo [o guia original](https://ii.clsty.link/).
+- Git, Bash, Python 3; `ripgrep (rg)` é recomendado para a triagem de caminhos privados.
+- Espaço para o backup integral de `~/.config/quickshell/end4-pC` e das configurações substituídas.
+- Os programas referenciados no Hyprland, como Rofi, Kitty, Fish, Fastfetch, btop e tty-clock, precisam existir. **O instalador não instala pacotes.**
+- O script **não prepara um ambiente 100% plug-and-play**: os caminhos de wallpaper e recursos visuais ainda dependem dos arquivos escolhidos por cada usuário.
 
-No terminal Fish:
+Teste primeiro em uma VM/usuário de teste; não use `--apply` no seu desktop personalizado atual. O Controller Mode privado não faz parte do pacote.
+
+## 1. Obter o código
 
 ```fish
-cd ~/Downloads/end4-pC-character-themes
+git clone https://github.com/pedrogonzalez-png/Hyprland-Themes.git
+cd Hyprland-Themes
+```
+
+Após instalar a base illogical-impulse, se o diretório `~/.config/quickshell/end4-pC` **ainda não existir**:
+
+```fish
+bash install-desktop.sh --prepare-base
+```
+
+Esse comando baixa o repositório oficial pctrade/end4-pC e seleciona, em estado *detached HEAD*, o commit `8fbb6716cba628a13103e665e9538021683a7250`. Se o diretório já existir, **recusa substituir ou apagar seus arquivos**. Caso seu end4-pC esteja em versão diferente ou tenha alterações, mantenha-o intacto e use outro usuário/VM para os testes.
+
+## 2. Verificar sem instalar
+
+```fish
 bash install-desktop.sh --check
 ```
 
-O script clona a base local do end4-pC **em diretório temporário**, seleciona o commit de referência, testa o patch e os 4 arquivos extras; o diretório temporário é apagado ao sair. Não modifica arquivos em `~/.config/` ou `~/.local/`.
+Confere os arquivos públicos, clona localmente o checkout end4-pC para uma pasta temporária, posiciona-o no commit correto e testa a aplicação do patch e os quatro arquivos novos. **Não modifica** o Hyprland nem o Quickshell ativos. Esperado: `READ-ONLY CHECK PASSED`.
 
-## Instalação experimental, somente em sistema de teste
+O `--check` confirma a compatibilidade do patch, **não** todos os requisitos de runtime (QML, Quickshell, temas, dependências ou aparência).
+
+## 3. Aplicar somente no ambiente de teste
 
 ```fish
 bash install-desktop.sh --apply
 ```
 
-O script exige que o repositório end4-pC em `~/.config/quickshell/end4-pC` esteja exatamente na versão indicada pelo arquivo `overrides/end4-pC-base-commit.txt` **e sem alterações locais**. No seu Arch personalizado ele provavelmente **se recusará a instalar de propósito**; isso protege o trabalho em andamento. Use um ambiente Arch de teste já configurado com a base original.
+O script exige um checkout end4-pC limpo, sem arquivos extras e exatamente no commit pinado. É necessário digitar `APLICAR`. Ele faz backup do checkout e dos arquivos preexistentes, aplica as mudanças, copia os dotfiles públicos e instala os dez JSONs de temas.
 
-Quando permitido, faz backup da instalação end4-pC e dos arquivos de configuração que substituir. Nunca usa sudo, não habilita serviços, não reinicia Quickshell/Hyprland, nem instala o Controller Mode privado. Não contém wallpapers de terceiros nem a imagem da Changli para Fastfetch.
+Os backups ficam em `~/.local/share/Hyprland-Themes/backups/<data-id>/`. Se um comando normal falhar durante a cópia, o instalador **tenta reverter** as configurações copiadas, remover arquivos criados e restaurar o checkout original. Isso não é garantia contra desligamento inesperado, falta de espaço ou `kill -9`: nesses casos, use os backups para recuperação manual. Ele **não recarrega** Hyprland/Quickshell e não ativa serviços automaticamente.
 
-**Em caso de falha, não reinicie o Hyprland antes de revisar os arquivos e o backup.** Backups são salvos em `~/.local/share/Hyprland-Themes/backups/`.
+## 4. Tema por wallpaper — ativação opcional
 
-## Antes de publicar
+Selecione um wallpaper e tema pelo end4-pC. Para criar uma associação explícita e habilitar o monitoramento:
 
-Revise os caminhos, scripts e dependências copiados em `dots/` e `overrides/`. A triagem automatizada de termos sensíveis não substitui revisão humana. O `--check` é um teste de aplicação de patch, **não um teste visual/funcional de toda a sessão**.
+```fish
+~/.local/bin/end4-wallpaper-theme status
+~/.local/bin/end4-wallpaper-theme bind changli
+systemctl --user enable --now end4-wallpaper-theme.path
+```
+
+Outras opções: `bind hiyuki`, `bind emilia`, `bind furina`, `bind hotline-miami`. O script também tenta reconhecer o tema pelo nome do wallpaper. Para desativar o serviço:
+
+```fish
+systemctl --user disable --now end4-wallpaper-theme.path
+```
+
+Se não disparar, confira `systemctl --user status end4-wallpaper-theme.path` e `journalctl --user -u end4-wallpaper-theme.service -n 30`. O arquivo de associações de wallpapers é criado sob `~/.config/illogical-impulse/`, não é publicado.
+
+## 5. Fastfetch / imagem personalizada
+
+O preset padrão usa logo automático do sistema porque `Changli.webp` não é distribuído. Se você possui uma imagem que pode usar, veja a seção **Fastfetch image** no README para habilitar `kitty-icat` manualmente.
+
+## Recuperação e segurança
+
+- Com erro durante `--apply`, veja o caminho `Recovery attempted; inspect backup: ...` e confirme manualmente o estado dos arquivos.
+- Depois de uma instalação concluída, não há botão de rollback automático. Os originais ficam em `backups/<data-id>/originals/` e a cópia anterior do Quickshell em `backups/<data-id>/quickshell/end4-pC/`.
+- Não sobrescreva uma configuração personalizada posterior com backups antigos sem comparar os arquivos.
+- Nenhum wallpaper, imagem protegida, script do Controller Mode ou token pessoal deve ser colocado nesse repositório.
+
+O instalador foi exercitado com fixtures locais (verificação, cancelamento, falha simulada e reversão). **Ainda precisa de teste visual completo em uma instalação Arch limpa.**
