@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch end4-pC configuration for wallpaper changes
+
+[Path]
+PathChanged=%h/.config/illogical-impulse/config.json
+Unit=end4-wallpaper-theme.service
+
+[Install]
+WantedBy=default.target

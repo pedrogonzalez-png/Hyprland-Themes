@@ -1,0 +1,75 @@
+configuration {
+    show-icons: true;
+    display-drun: "Buscar:";
+    drun-display-format: "{name}";
+}
+
+* {
+    /* Paleta de Cores */
+    bg: #0a0a0adc;       /* Fundo preto com transparência */
+    bg-alt: #1a1a1a;     /* Preto um pouco mais claro para a barra de pesquisa */
+    fg: #e5e5e5;         /* Texto cinza clarinho/branco */
+    red: #ff3333;        /* Vermelho brilhante da espada e do fogo */
+    
+    background-color: transparent;
+    text-color: @fg;
+}
+
+window {
+    location: east;
+    anchor: east;
+    x-offset: -20px;     /* Distância da borda direita */
+    y-offset: -150px;    /* Altura (mude esse número para subir ou descer) */
+    width: 350px;
+    background-color: @bg;
+    border: 2px solid;
+    border-color: @red;
+    border-radius: 8px;
+}
+
+mainbox {
+    padding: 15px;
+}
+
+inputbar {
+    background-color: @bg-alt;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 0px 0px 15px 0px;
+}
+
+prompt {
+    text-color: @red;
+    font: "bold";
+}
+
+entry {
+    text-color: @fg;
+    margin: 0px 0px 0px 10px;
+}
+
+listview {
+    lines: 7;
+    spacing: 5px;
+    scrollbar: false;
+}
+
+element {
+    padding: 8px 10px;
+    border-radius: 5px;
+}
+
+element-icon {
+    size: 20px;
+    margin: 0px 10px 0px 0px;
+}
+
+element-text {
+    vertical-align: 0.5;
+    text-color: inherit;
+}
+
+element selected {
+    background-color: @red;
+    text-color: #000000;
+}

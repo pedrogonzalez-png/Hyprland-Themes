@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply linked end4-pC color theme when wallpaper changes
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/end4-wallpaper-theme apply

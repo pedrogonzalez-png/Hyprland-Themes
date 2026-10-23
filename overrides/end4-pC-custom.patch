@@ -1,0 +1,1676 @@
+diff --git a/modules/common/Config.qml b/modules/common/Config.qml
+index 15c9ef6..2ada495 100644
+--- a/modules/common/Config.qml
++++ b/modules/common/Config.qml
+@@ -57,6 +57,9 @@ Singleton {
+         interval: root.readWriteDelay
+         repeat: false
+         onTriggered: {
++            console.log("[CFG-DEBUG] GRAVANDO", root.filePath,
++                root.options.background.widgets.imageCard.cardWidth,
++                root.options.background.widgets.imageCard.cardHeight)
+             configFileView.writeAdapter()
+         }
+     }
+@@ -67,7 +70,10 @@ Singleton {
+         watchChanges: true
+         blockWrites: root.blockWrites
+         onFileChanged: fileReloadTimer.restart()
+-        onAdapterUpdated: fileWriteTimer.restart()
++        onAdapterUpdated: {
++    console.log("[CFG-DEBUG] ADAPTER ATUALIZADO")
++    fileWriteTimer.restart()
++}
+         onLoaded: root.ready = true
+         onLoadFailed: error => {
+             if (error == FileViewError.FileNotFound) {
+@@ -401,6 +407,7 @@ Singleton {
+                         property real y: 100
+                         property real z: 0
+                         property string path: ""
++                        property int intervalSeconds: 10
+                         property string shape: "Cookie4Sided"
+                         property real size: 200
+                     }
+@@ -413,6 +420,63 @@ Singleton {
+                         property real z: 0
+                         property string path: ""
+                         property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
++                    }
++                    property JsonObject imageCard2: JsonObject {
++                        property bool enable: false
++                        property string placementStrategy: "free"
++                        property real x: 820
++                        property real y: 250
++                        property real z: 0
++                        property string path: ""
++                        property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
++                    }
++                    property JsonObject imageCard3: JsonObject {
++                        property bool enable: false
++                        property string placementStrategy: "free"
++                        property real x: 200
++                        property real y: 430
++                        property real z: 0
++                        property string path: ""
++                        property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
++                    }
++                    property JsonObject imageCard4: JsonObject {
++                        property bool enable: false
++                        property string placementStrategy: "free"
++                        property real x: 510
++                        property real y: 430
++                        property real z: 0
++                        property string path: ""
++                        property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
++                    }
++                    property JsonObject imageCard5: JsonObject {
++                        property bool enable: false
++                        property string placementStrategy: "free"
++                        property real x: 820
++                        property real y: 430
++                        property real z: 0
++                        property string path: ""
++                        property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
++                    }
++                    property JsonObject imageCard6: JsonObject {
++                        property bool enable: false
++                        property string placementStrategy: "free"
++                        property real x: 200
++                        property real y: 610
++                        property real z: 0
++                        property string path: ""
++                        property string sizeMode: "1x2"
++                        property real cardWidth: 276
++                        property real cardHeight: 120
+                     }
+ 
+                     property JsonObject sticker: JsonObject {
+diff --git a/modules/common/widgets/ResizeHandler.qml b/modules/common/widgets/ResizeHandler.qml
+index 224d44a..0ea767a 100644
+--- a/modules/common/widgets/ResizeHandler.qml
++++ b/modules/common/widgets/ResizeHandler.qml
+@@ -1,3 +1,4 @@
++
+ import qs.modules.common
+ import QtQuick
+ 
+@@ -8,10 +9,17 @@ Canvas {
+     property bool hoverActive: false
+     property bool locked: false
+     required property real currentWidth
+-    property string resizeMode: "horizontal" 
++    property string resizeMode: "horizontal"
+     property bool rotatable: false
+     property real currentRotation: 0
+ 
++    // Mantem o puxador fixo durante o redimensionamento.
++    // Desativado por padrao para preservar outros widgets.
++    property bool freezeHandleDuringResize: false
++    property bool resizeDragActive: false
++    property real anchorStartWidth: 0
++    property real anchorStartHeight: 0
++
+     signal resized(real newValue)
+     signal resizedXY(real dx, real dy, real startWidth)
+     signal resizeFinished()
+@@ -26,28 +34,47 @@ Canvas {
+         }
+         return false
+     }
++
+     property real selectionInset: widgetSelected ? 8 : 0
+ 
+     Behavior on selectionInset {
+-        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
++        NumberAnimation {
++            duration: 150
++            easing.type: Easing.OutCubic
++        }
+     }
+ 
+     width: 62
+     height: 62
++
+     anchors {
+         right: anchorItem.right
+         bottom: anchorItem.bottom
++
+         rightMargin: -8 + selectionInset
++            + (root.freezeHandleDuringResize && root.resizeDragActive
++                ? root.anchorItem.width - root.anchorStartWidth
++                : 0)
++
+         bottomMargin: -8 + selectionInset
++            + (root.freezeHandleDuringResize && root.resizeDragActive
++                ? root.anchorItem.height - root.anchorStartHeight
++                : 0)
+     }
+-    opacity: (hoverActive || resizeArea.containsMouse || resizeArea.pressed) ? 0.85 : 0
++
++    opacity: (hoverActive || resizeArea.containsMouse || resizeArea.pressed)
++        ? 0.85 : 0
++
+     visible: opacity > 0 && !locked
+ 
+     Behavior on opacity {
+-        NumberAnimation { duration: 150 }
++        NumberAnimation {
++            duration: 150
++        }
+     }
+ 
+     property color strokeCol: Appearance.colors.colOnPrimaryContainer
++
+     onStrokeColChanged: requestPaint()
+     Component.onCompleted: requestPaint()
+ 
+@@ -58,7 +85,13 @@ Canvas {
+         ctx.lineWidth = 3
+         ctx.lineCap = "round"
+         ctx.beginPath()
+-        ctx.arc(width * 0.5, height * 0.5, width * 0.35, 0, Math.PI * 0.5)
++        ctx.arc(
++            width * 0.5,
++            height * 0.5,
++            width * 0.35,
++            0,
++            Math.PI * 0.5
++        )
+         ctx.stroke()
+     }
+ 
+@@ -67,7 +100,11 @@ Canvas {
+         anchors.fill: parent
+         anchors.margins: -6
+         hoverEnabled: true
+-        cursorShape: root.resizeMode === "diagonal" ? Qt.SizeFDiagCursor : Qt.SizeHorCursor
++
++        cursorShape: root.resizeMode === "diagonal"
++            ? Qt.SizeFDiagCursor
++            : Qt.SizeHorCursor
++
+         preventStealing: true
+ 
+         property real startValue: 0
+@@ -76,44 +113,63 @@ Canvas {
+ 
+         onPressed: (mouse) => {
+             startValue = root.currentWidth
++
+             var globalPos = mapToItem(null, mouse.x, mouse.y)
+             startX = globalPos.x
+             startY = globalPos.y
++
++            root.anchorStartWidth = root.anchorItem.width
++            root.anchorStartHeight = root.anchorItem.height
++            root.resizeDragActive = true
+         }
++
+         onPositionChanged: (mouse) => {
+             if (!pressed) return
++
+             var globalPos = mapToItem(null, mouse.x, mouse.y)
++
+             var dx = globalPos.x - startX
+             var dy = globalPos.y - startY
++
+             var delta = root.resizeMode === "diagonal"
+                 ? Math.max(dx, dy)
+                 : dx
++
+             root.resized(startValue + delta)
+             root.resizedXY(dx, dy, startValue)
+         }
++
+         onReleased: {
+             root.resizeFinished()
++            root.resizeDragActive = false
++        }
++
++        onCanceled: {
++            root.resizeFinished()
++            root.resizeDragActive = false
+         }
+     }
+ 
+     Canvas {
+         id: rotateHandle
++
+         visible: root.rotatable && !root.locked
++
+         anchors {
+             right: parent.left
+             bottom: parent.top
+             rightMargin: -width / 2
+             bottomMargin: 8
+         }
++
+         width: 36
+         height: 36
+-        opacity: (root.hoverActive || rotateArea.containsMouse || rotateArea.pressed) ? 0.85 : 0
+ 
+-        Behavior on opacity {
+-            NumberAnimation { duration: 150 }
+-        }
++        opacity: (root.hoverActive || rotateArea.containsMouse || rotateArea.pressed)
++            ? 0.85 : 0
+ 
+         property color strokeCol: Appearance.colors.colOnPrimaryContainer
++
+         onStrokeColChanged: requestPaint()
+         Component.onCompleted: requestPaint()
+ 
+@@ -123,18 +179,27 @@ Canvas {
+             ctx.strokeStyle = strokeCol
+             ctx.lineWidth = 3
+             ctx.lineCap = "round"
++
+             ctx.beginPath()
+-            ctx.arc(width * 0.5, height * 0.5, width * 0.3, Math.PI * 0.15, Math.PI * 1.75)
++            ctx.arc(
++                width * 0.5,
++                height * 0.5,
++                width * 0.3,
++                Math.PI * 0.15,
++                Math.PI * 1.75
++            )
+             ctx.stroke()
+ 
+             var endAngle = Math.PI * 1.75
+             var r = width * 0.3
++
+             var ax = width * 0.5 + Math.cos(endAngle) * r
+             var ay = height * 0.5 + Math.sin(endAngle) * r
++
+             ctx.beginPath()
+             ctx.moveTo(ax, ay)
+             ctx.lineTo(ax - 5, ay - 3)
+-            ctx.moveTo(ax, ay)
++            ctx.moveTo(ax, ay + 5)
+             ctx.lineTo(ax - 3, ay + 5)
+             ctx.stroke()
+         }
+@@ -153,23 +218,43 @@ Canvas {
+             property real startRotation: 0
+ 
+             onPressed: (mouse) => {
+-                var center = root.anchorItem.mapToItem(null, root.anchorItem.width / 2, root.anchorItem.height / 2)
++                var center = root.anchorItem.mapToItem(
++                    null,
++                    root.anchorItem.width / 2,
++                    root.anchorItem.height / 2
++                )
++
+                 centerX = center.x
+                 centerY = center.y
++
+                 var globalPos = mapToItem(null, mouse.x, mouse.y)
+-                startAngle = Math.atan2(globalPos.y - centerY, globalPos.x - centerX)
++
++                startAngle = Math.atan2(
++                    globalPos.y - centerY,
++                    globalPos.x - centerX
++                )
++
+                 startRotation = root.currentRotation
+             }
++
+             onPositionChanged: (mouse) => {
+                 if (!pressed) return
++
+                 var globalPos = mapToItem(null, mouse.x, mouse.y)
+-                var angle = Math.atan2(globalPos.y - centerY, globalPos.x - centerX)
++
++                var angle = Math.atan2(
++                    globalPos.y - centerY,
++                    globalPos.x - centerX
++                )
++
+                 var deltaDeg = (angle - startAngle) * 180 / Math.PI
++
+                 root.rotated(startRotation + deltaDeg)
+             }
++
+             onReleased: {
+                 root.rotateFinished()
+             }
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/modules/ii/background/WidgetsLoader.qml b/modules/ii/background/WidgetsLoader.qml
+index 7babb8b..dec5c54 100644
+--- a/modules/ii/background/WidgetsLoader.qml
++++ b/modules/ii/background/WidgetsLoader.qml
+@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
+ 
+ import QtQuick
+ import qs
++import qs.services
+ import qs.modules.common
+ import qs.modules.common.widgets
+ import qs.modules.common.widgets.widgetCanvas
+@@ -24,6 +25,9 @@ import qs.modules.ii.background.widgets.customtext
+ Item {
+     id: root
+ 
++    // WallpaperLayouts: autoload
++    readonly property bool wallpaperLayoutsStarted: WallpaperLayouts.initialized
++
+     required property var screen
+     required property var wallpaperItem
+     required property bool wallpaperSafetyTriggered
+@@ -36,6 +40,11 @@ Item {
+             { key: "visualizer" },
+             { key: "customImage" },
+             { key: "imageCard" },
++            { key: "imageCard2" },
++            { key: "imageCard3" },
++            { key: "imageCard4" },
++            { key: "imageCard5" },
++            { key: "imageCard6" },
+             { key: "sticker" },
+             { key: "calendar" },
+             { key: "weather" },
+@@ -68,6 +77,11 @@ Item {
+                     case "visualizer":  return visualizerComp
+                     case "customImage": return customImageComp
+                     case "imageCard":   return imageCardComp
++                    case "imageCard2": return imageCard2Comp
++                    case "imageCard3": return imageCard3Comp
++                    case "imageCard4": return imageCard4Comp
++                    case "imageCard5": return imageCard5Comp
++                    case "imageCard6": return imageCard6Comp
+                     case "sticker":     return stickerComp
+                     case "calendar":    return calendarComp
+                     case "weather":     return weatherComp
+@@ -125,6 +139,66 @@ Item {
+             wallpaperItem: root.wallpaperItem
+         }
+     }
++    Component {
++        id: imageCard2Comp
++        ImageCardWidget {
++            configEntryName: "imageCard2"
++            screenWidth: root.screen.width
++            screenHeight: root.screen.height
++            scaledScreenWidth: root.screen.width
++            scaledScreenHeight: root.screen.height
++            wallpaperScale: 1
++            wallpaperItem: root.wallpaperItem
++        }
++    }
++    Component {
++        id: imageCard3Comp
++        ImageCardWidget {
++            configEntryName: "imageCard3"
++            screenWidth: root.screen.width
++            screenHeight: root.screen.height
++            scaledScreenWidth: root.screen.width
++            scaledScreenHeight: root.screen.height
++            wallpaperScale: 1
++            wallpaperItem: root.wallpaperItem
++        }
++    }
++    Component {
++        id: imageCard4Comp
++        ImageCardWidget {
++            configEntryName: "imageCard4"
++            screenWidth: root.screen.width
++            screenHeight: root.screen.height
++            scaledScreenWidth: root.screen.width
++            scaledScreenHeight: root.screen.height
++            wallpaperScale: 1
++            wallpaperItem: root.wallpaperItem
++        }
++    }
++    Component {
++        id: imageCard5Comp
++        ImageCardWidget {
++            configEntryName: "imageCard5"
++            screenWidth: root.screen.width
++            screenHeight: root.screen.height
++            scaledScreenWidth: root.screen.width
++            scaledScreenHeight: root.screen.height
++            wallpaperScale: 1
++            wallpaperItem: root.wallpaperItem
++        }
++    }
++    Component {
++        id: imageCard6Comp
++        ImageCardWidget {
++            configEntryName: "imageCard6"
++            screenWidth: root.screen.width
++            screenHeight: root.screen.height
++            scaledScreenWidth: root.screen.width
++            scaledScreenHeight: root.screen.height
++            wallpaperScale: 1
++            wallpaperItem: root.wallpaperItem
++        }
++    }
+     Component {
+         id: customImageComp
+         CustomImage {
+diff --git a/modules/ii/background/widgets/images/CustomImage.qml b/modules/ii/background/widgets/images/CustomImage.qml
+index c04049f..81d3ed1 100644
+--- a/modules/ii/background/widgets/images/CustomImage.qml
++++ b/modules/ii/background/widgets/images/CustomImage.qml
+@@ -4,6 +4,7 @@ import QtQuick
+ import QtQuick.Layouts
+ import QtQuick.Effects
+ import Qt5Compat.GraphicalEffects
++import Qt.labs.folderlistmodel
+ import Quickshell
+ import qs.modules.common
+ import qs.modules.common.widgets
+@@ -16,11 +17,47 @@ AbstractBackgroundWidget {
+     configEntryName: "customImage"
+     hoverEnabled: true
+ 
++    // "path" aceita tanto uma imagem quanto uma pasta com imagens.
+     property string imagePath: Config.options.background.widgets.customImage.path ?? ""
++    property bool isFolderPath: imagePath !== "" && !/\.(png|jpe?g|webp|avif|bmp|gif|tiff?)(\?.*)?$/i.test(imagePath)
++    property int slideIndex: 0
++    property int intervalSeconds: Math.max(2, Config.options.background.widgets.customImage.intervalSeconds ?? 10)
++    property string displayedImage: {
++        if (!root.isFolderPath)
++            return root.imagePath
++        if (imageFolder.count === 0)
++            return ""
++        return String(imageFolder.get(root.slideIndex % imageFolder.count, "fileUrl") || "")
++    }
+     property bool dropHover: false
+     property int shapeType: ShapeUtils.getShape(Config.options.background.widgets.customImage.shape ?? "Cookie4Sided")
+     property real widgetSize: Config.options.background.widgets.customImage.size ?? 200
+ 
++    onImagePathChanged: slideIndex = 0
++
++    // Carrega as imagens de uma pasta. A lista muda quando arquivos são adicionados/removidos.
++    FolderListModel {
++        id: imageFolder
++        folder: root.isFolderPath
++            ? (root.imagePath.startsWith("file:") ? root.imagePath : "file://" + encodeURI(root.imagePath))
++            : "file:///__customimage_no_folder__"
++        nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.avif", "*.bmp", "*.gif", "*.tif", "*.tiff"]
++        caseSensitive: false
++        showDirs: false
++        showFiles: true
++        showDotAndDotDot: false
++        sortField: FolderListModel.Name
++        onCountChanged: root.slideIndex = 0
++    }
++
++    Timer {
++        id: slideshowTimer
++        interval: root.intervalSeconds * 1000
++        repeat: true
++        running: root.isFolderPath && imageFolder.count > 1
++        onTriggered: root.slideIndex = (root.slideIndex + 1) % imageFolder.count
++    }
++
+     implicitWidth: contentItem.implicitWidth
+     implicitHeight: contentItem.implicitHeight
+ 
+@@ -68,16 +105,15 @@ AbstractBackgroundWidget {
+ 
+             StyledImage {
+                 anchors.fill: parent
+-                source: root.imagePath !== "" ? root.imagePath : ""
++                source: root.displayedImage
+                 fillMode: Image.PreserveAspectCrop
+                 cache: false
+                 antialiasing: true
+                 sourceSize.width: parent.width
+                 sourceSize.height: parent.height
+-                visible: root.imagePath !== ""
++                visible: root.displayedImage !== ""
+             }
+ 
+-            // Placeholder + hover hint
+             MaterialSymbol {
+                 anchors.centerIn: parent
+                 iconSize: contentItem.implicitWidth / 3
+@@ -86,10 +122,13 @@ AbstractBackgroundWidget {
+                 color: root.dropHover
+                     ? Appearance.colors.colPrimary
+                     : Appearance.colors.colOnPrimaryContainer
+-                visible: root.imagePath === ""
+-                Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
++                visible: root.displayedImage === ""
++                Behavior on color {
++                    animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
++                }
+             }
+ 
++            // Arraste uma foto OU a pasta inteira do gerenciador de arquivos.
+             DropArea {
+                 anchors.fill: parent
+                 keys: ["text/uri-list"]
+@@ -97,16 +136,17 @@ AbstractBackgroundWidget {
+                     drag.accept(Qt.CopyAction)
+                     root.dropHover = true
+                 }
+-                onExited: {
+-                    root.dropHover = false
+-                }
++                onExited: root.dropHover = false
+                 onDropped: (drop) => {
+                     if (drop.hasUrls && drop.urls.length > 0) {
+-                        var cleanPath = drop.urls[0].toString().replace(/^file:\/\//, "")
+-                        var ext = cleanPath.split(".").pop().toLowerCase()
+-                        var accepted = ["png","jpg","jpeg","webp","avif","bmp","gif","tiff","tif"]
+-                        if (accepted.indexOf(ext) !== -1) {
+-                            Config.options.background.widgets.customImage.path = cleanPath
++                        const url = drop.urls[0].toString()
++                        if (url.startsWith("file://")) {
++                            const cleanPath = decodeURIComponent(url.replace(/^file:\/\//, ""))
++                            const isSupportedImage = /\.(png|jpe?g|webp|avif|bmp|gif|tiff?)$/i.test(cleanPath)
++                            // Pastas normalmente não possuem extensão de arquivo.
++                            const looksLikeFolder = !/\.[^/.]+$/.test(cleanPath.replace(/\/$/, ""))
++                            if (isSupportedImage || looksLikeFolder)
++                                Config.options.background.widgets.customImage.path = cleanPath.replace(/\/$/, "")
+                         }
+                     }
+                     root.dropHover = false
+@@ -114,7 +154,7 @@ AbstractBackgroundWidget {
+             }
+         }
+ 
+-        ResizeHandler{
++        ResizeHandler {
+             anchorItem: imageShape
+             hoverActive: root.containsMouse
+             locked: Config.options.background.widgetsLocked
+diff --git a/modules/ii/background/widgets/images/ImageCardWidget.qml b/modules/ii/background/widgets/images/ImageCardWidget.qml
+index bd3ff90..f01c192 100644
+--- a/modules/ii/background/widgets/images/ImageCardWidget.qml
++++ b/modules/ii/background/widgets/images/ImageCardWidget.qml
+@@ -6,81 +6,151 @@ import qs.modules.common.widgets
+ import qs.modules.common.widgets.widgetCanvas
+ import qs.modules.ii.background.widgets
+ 
++// Image Card do end4-pC: ate 6 instancias independentes, com
++// redimensionamento livre e substituicao da imagem por drag-and-drop.
++// A instancia usa configEntryName para escolher imageCard, imageCard2, etc.
+ AbstractBackgroundWidget {
+     id: root
+     configEntryName: "imageCard"
+     hoverEnabled: true
+ 
++    readonly property real minCardSize: 90
++
+     property string imagePath: root.configEntry.path ?? ""
+     property bool dropHover: false
+ 
++    // Converte caminhos locais para URLs com escapes seguros.
++    readonly property string imageSource: {
++        const p = String(root.imagePath || "")
++        if (p === "") return ""
++        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(p)) return p
++        return "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F")
++    }
++
+     readonly property real cardSpacing: 12
+     readonly property real singleWidth: 132
+-    readonly property real cardHeight: 120
+-    readonly property real doubleHeight: root.cardHeight * 2 + root.cardSpacing
++    readonly property real defaultHeight: 120
++    readonly property string sizeMode: root.configEntry.sizeMode ?? "1x2"
++    readonly property real defaultWidth: {
++        if (sizeMode === "1x1") return singleWidth
++        if (sizeMode === "1x2" || sizeMode === "2x2") return singleWidth * 2 + cardSpacing
++        return singleWidth * 3 + cardSpacing * 2
++    }
++    readonly property real defaultCardHeight: (sizeMode === "2x2" || sizeMode === "2x3")
++        ? defaultHeight * 2 + cardSpacing : defaultHeight
++
++    // A configuracao e a fonte persistida; a previa e usada durante o arraste.
++    readonly property real savedWidth: Number(root.configEntry.cardWidth) > 0
++        ? Number(root.configEntry.cardWidth) : root.defaultWidth
++    readonly property real savedHeight: Number(root.configEntry.cardHeight) > 0
++        ? Number(root.configEntry.cardHeight) : root.defaultCardHeight
++
++    property bool resizingCard: false
++    property real previewWidth: 0
++    property real previewHeight: 0
++    property real resizeStartHeight: 0
++
++    readonly property real widgetWidth: root.resizingCard ? root.previewWidth : root.savedWidth
++    readonly property real widgetHeight: root.resizingCard ? root.previewHeight : root.savedHeight
++
++    // Alem das dimensoes implicitas, define as dimensoes REAIS do MouseArea.
++    // Isso evita que a geometria do canvas e a do cartao se desencontrem.
++    width: root.widgetWidth
++    height: root.widgetHeight
++    implicitWidth: root.widgetWidth
++    implicitHeight: root.widgetHeight
++
++    function beginResize() {
++        const vx = Math.round(root.x)
++        const vy = Math.round(root.y)
++
++        // Se a posicao visivel sofreu clamp pela tela, fixa-a para nao saltar.
++        if (Math.abs(vx - Number(root.configEntry.x)) > 0.5)
++            root.configEntry.x = vx
++        if (Math.abs(vy - Number(root.configEntry.y)) > 0.5)
++            root.configEntry.y = vy
++
++        root.resizeStartHeight = root.savedHeight
++        root.previewWidth = root.savedWidth
++        root.previewHeight = root.savedHeight
++        root.resizingCard = true
++    }
++
++    function finishResize() {
++        if (!root.resizingCard) return
+ 
+-    readonly property real snapWidth1: root.singleWidth
+-    readonly property real snapWidth2: root.singleWidth * 2 + root.cardSpacing
+-    readonly property real snapWidth3: root.singleWidth * 3 + root.cardSpacing * 2
++        const w = Math.max(root.minCardSize, Math.round(root.previewWidth))
++        const h = Math.max(root.minCardSize, Math.round(root.previewHeight))
+ 
+-    readonly property real rowToggleDelta: (root.doubleHeight - root.cardHeight) * 0.3
++        // Atualiza a configuracao antes de retirar o modo de previa.
++        root.configEntry.cardWidth = w
++        root.configEntry.cardHeight = h
++        root.previewWidth = w
++        root.previewHeight = h
++        root.resizingCard = false
+ 
+-    property string dragMode: ""
+-    readonly property string sizeMode: root.dragMode !== "" ? root.dragMode : (root.configEntry.sizeMode ?? "1x2")
+-    readonly property bool doubleRow: root.sizeMode === "2x2" || root.sizeMode === "2x3"
++        // Diagnostico enxuto: confirma o valor visivel imediatamente apos o commit.
++        console.log("[ImageCard-SAVE]", root.configEntryName,
++            "solicitado", w, h,
++            "em-memoria", root.savedWidth, root.savedHeight)
++    }
+ 
+-    readonly property real modeWidth: {
+-        switch (root.sizeMode) {
+-            case "1x1": return root.snapWidth1
+-            case "1x2": return root.snapWidth2
+-            case "2x2": return root.snapWidth2
+-            default:    return root.snapWidth3
++    // Se outro componente recarregar dimensoes antigas do JSON, este aviso
++    // ajuda a separar problema de layout de problema de persistencia.
++    property real lastResizeWidth: 0
++    property real lastResizeHeight: 0
++    property bool hasResizedLocally: false
++
++    onSavedWidthChanged: {
++        if (root.hasResizedLocally && !root.resizingCard
++                && Math.round(root.savedWidth) !== Math.round(root.lastResizeWidth)) {
++            console.warn("[ImageCard-RESET]", root.configEntryName,
++                "largura voltou para", root.savedWidth,
++                "apos salvar", root.lastResizeWidth)
+         }
+     }
+-    readonly property real modeHeight: root.doubleRow ? root.doubleHeight : root.cardHeight
+-
+-    property real widgetWidth: root.modeWidth
+-    property real widgetHeight: root.modeHeight
+-
+-    readonly property real imageAspect: probe.implicitHeight > 0 ? probe.implicitWidth / probe.implicitHeight : 1
+-    readonly property bool imageWiderThanCard: root.imageAspect >= root.modeWidth / root.modeHeight
+-
+-    function modeForDrag(dx, dy, startWidth) {
+-        var width = startWidth + dx
+-        var mid1 = (root.snapWidth1 + root.snapWidth2) / 2
+-        var mid2 = (root.snapWidth2 + root.snapWidth3) / 2
+-        var columns = width < mid1 ? 1 : (width < mid2 ? 2 : 3)
+-        var double = root.doubleRow
+-        if (dy > root.rowToggleDelta) double = true
+-        else if (dy < -root.rowToggleDelta) double = false
+-        if (double) return columns === 3 ? "2x3" : "2x2"
+-        return "1x" + columns
++    onSavedHeightChanged: {
++        if (root.hasResizedLocally && !root.resizingCard
++                && Math.round(root.savedHeight) !== Math.round(root.lastResizeHeight)) {
++            console.warn("[ImageCard-RESET]", root.configEntryName,
++                "altura voltou para", root.savedHeight,
++                "apos salvar", root.lastResizeHeight)
++        }
+     }
+ 
+-    function acceptDrop(drop) {
+-        if (drop.hasUrls && drop.urls.length > 0) {
+-            var cleanPath = drop.urls[0].toString().replace(/^file:\/\//, "")
+-            var ext = cleanPath.split(".").pop().toLowerCase()
+-            var accepted = ["png", "jpg", "jpeg", "webp", "avif", "bmp", "gif", "tiff", "tif"]
+-            if (accepted.indexOf(ext) !== -1) root.configEntry.path = cleanPath
++    function localImagePath(value) {
++        let path = String(value || "").trim()
++        if (path.startsWith("file://")) {
++            path = path.slice(7)
++            if (path.startsWith("localhost/")) path = path.slice(9)
++            try { path = decodeURIComponent(path) } catch (e) { return "" }
+         }
+-        root.dropHover = false
++        if (!path.startsWith("/")) return ""
++        if (!/\.(png|jpe?g|webp|avif|bmp|gif|tiff?|svg)$/i.test(path)) return ""
++        return path
+     }
+ 
+-    implicitWidth: card.implicitWidth
+-    implicitHeight: card.implicitHeight
+-
+-    Behavior on widgetWidth {
+-        animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
+-    }
++    function acceptDroppedImage(drop) {
++        let newPath = ""
++        if (drop.urls && drop.urls.length > 0) {
++            for (let i = 0; i < drop.urls.length; ++i) {
++                newPath = root.localImagePath(drop.urls[i].toString())
++                if (newPath !== "") break
++            }
++        }
++        if (newPath === "" && drop.hasText)
++            newPath = root.localImagePath(String(drop.text).split(/\r?\n/)[0])
+ 
+-    Behavior on widgetHeight {
+-        animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
++        if (newPath !== "") {
++            root.configEntry.path = newPath
++            drop.accept(Qt.CopyAction)
++        }
++        root.dropHover = false
+     }
+ 
+     Image {
+         id: probe
+-        source: root.imagePath
++        source: root.imageSource
+         visible: false
+         asynchronous: true
+         cache: false
+@@ -88,8 +158,14 @@ AbstractBackgroundWidget {
+         sourceSize.height: 64
+     }
+ 
++    readonly property real imageAspect: probe.implicitHeight > 0
++        ? probe.implicitWidth / probe.implicitHeight : 1
++    readonly property bool imageWiderThanCard: root.imageAspect >=
++        root.savedWidth / Math.max(1, root.savedHeight)
++
+     WidgetCard {
+         id: card
++        anchors.fill: parent
+         implicitWidth: root.widgetWidth
+         implicitHeight: root.widgetHeight
+         widget: root
+@@ -101,36 +177,46 @@ AbstractBackgroundWidget {
+ 
+             StyledImage {
+                 anchors.fill: parent
+-                source: root.imagePath
++                source: root.imageSource
+                 visible: root.imagePath !== ""
+                 fillMode: Image.PreserveAspectCrop
+                 cache: false
+                 antialiasing: true
+                 smooth: true
+                 mipmap: true
+-                sourceSize.width: root.imageWiderThanCard ? 0 : root.modeWidth * 2
+-                sourceSize.height: root.imageWiderThanCard ? root.modeHeight * 2 : 0
++                // Usa tamanho salvo para evitar decodificacao continua no resize.
++                sourceSize.width: root.imageWiderThanCard ? 0 : Math.ceil(root.savedWidth * 2)
++                sourceSize.height: root.imageWiderThanCard ? Math.ceil(root.savedHeight * 2) : 0
+             }
+ 
+             MaterialSymbol {
+                 anchors.centerIn: parent
+-                iconSize: Math.min(card.implicitWidth, card.implicitHeight) / 3
++                iconSize: Math.min(card.width, card.height) / 3
+                 text: root.dropHover ? "download" : "image"
+                 fill: root.dropHover ? 1 : 0
+-                color: root.dropHover ? Appearance.colors.colPrimary : Appearance.colors.colOnPrimaryContainer
++                color: root.dropHover
++                    ? Appearance.colors.colPrimary
++                    : Appearance.colors.colOnPrimaryContainer
+                 visible: root.imagePath === ""
+-                Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
++            }
++
++            Rectangle {
++                anchors.fill: parent
++                color: Appearance.colors.colPrimary
++                opacity: root.dropHover ? 0.22 : 0
++                visible: root.dropHover
++                radius: card.radius
+             }
+ 
+             DropArea {
+                 anchors.fill: parent
+-                keys: ["text/uri-list"]
++                keys: ["text/uri-list", "text/plain"]
+                 onEntered: (drag) => {
+                     drag.accept(Qt.CopyAction)
+                     root.dropHover = true
+                 }
+                 onExited: root.dropHover = false
+-                onDropped: (drop) => root.acceptDrop(drop)
++                onDropped: (drop) => root.acceptDroppedImage(drop)
+             }
+         }
+ 
+@@ -140,10 +226,23 @@ AbstractBackgroundWidget {
+             locked: Config.options.background.widgetsLocked
+             currentWidth: root.widgetWidth
+             resizeMode: "diagonal"
+-            onResizedXY: (dx, dy, startWidth) => { root.dragMode = root.modeForDrag(dx, dy, startWidth) }
++            z: 2
++
++            onResizedXY: (dx, dy, startWidth) => {
++                if (!root.resizingCard)
++                    root.beginResize()
++
++                root.previewWidth = Math.max(root.minCardSize, Math.round(startWidth + dx))
++                root.previewHeight = Math.max(root.minCardSize,
++                    Math.round(root.resizeStartHeight + dy))
++            }
++
+             onResizeFinished: {
+-                root.configEntry.sizeMode = root.sizeMode
+-                root.dragMode = ""
++                if (!root.resizingCard) return
++                root.lastResizeWidth = Math.round(root.previewWidth)
++                root.lastResizeHeight = Math.round(root.previewHeight)
++                root.hasResizedLocally = true
++                root.finishResize()
+             }
+         }
+     }
+diff --git a/modules/ii/settings/DashboardContent.qml b/modules/ii/settings/DashboardContent.qml
+index 59338e9..6b362f5 100644
+--- a/modules/ii/settings/DashboardContent.qml
++++ b/modules/ii/settings/DashboardContent.qml
+@@ -25,6 +25,7 @@ Item {
+     readonly property bool wallpaperMode: currentPage === wallpapersPage
+     readonly property int homePage: 0
+     readonly property int settingsPage: 4
++    readonly property int cheatsheetPage: 5
+     readonly property int presetsPage: 2
+     readonly property int mediaPage: 3
+     readonly property bool mediaVisible: currentPage === mediaPage && mediaState.displayedArtFilePath !== ""
+@@ -58,6 +59,14 @@ Item {
+         forceActiveFocus();
+     }
+ 
++    // Permite abrir esta pagina pelo atalho Super + / mesmo com Dashboard aberto.
++    Connections {
++        target: GlobalStates
++        function onDashboardPageChanged() {
++            if (root.currentPage !== GlobalStates.dashboardPage && root.pendingPage !== GlobalStates.dashboardPage)
++                root.goToPage(GlobalStates.dashboardPage);
++        }
++    }
+     Connections {
+         target: Wallpapers
+         function onWallpapersChanged() {
+@@ -160,7 +169,8 @@ Item {
+         { name: Translation.tr("Wallpapers"), icon: "wallpaper" },
+         { name: Translation.tr("Presets"), icon: "hallway" },
+         { name: Translation.tr("Media"), icon: "play_circle" },
+-        { name: Translation.tr("Settings"), icon: "settings" }
++        { name: Translation.tr("Settings"), icon: "settings" },
++        { name: "Atalhos / Keys", icon: "keyboard" }
+     ]
+ 
+     readonly property var layouts: [
+@@ -193,7 +203,7 @@ Item {
+     }
+ 
+     function buildPage(page) {
+-        if (page === mediaPage || page === homePage || page === settingsPage || page === wallpapersPage || page === presetsPage) return [];
++        if (page === mediaPage || page === homePage || page === settingsPage || page === wallpapersPage || page === presetsPage || page === cheatsheetPage) return [];
+         const spans = layouts[page % layouts.length];
+         const pool = page === wallpapersPage ? shuffled(Wallpapers.wallpapers) : [];
+         return spans.map((s, i) => {
+@@ -561,7 +571,7 @@ Item {
+             id: boxGrid
+             Layout.fillWidth: true
+             Layout.fillHeight: true
+-            visible: root.currentPage !== root.mediaPage && root.currentPage !== root.homePage && root.currentPage !== root.settingsPage && root.currentPage !== root.wallpapersPage && root.currentPage !== root.presetsPage
++            visible: root.currentPage !== root.mediaPage && root.currentPage !== root.homePage && root.currentPage !== root.settingsPage && root.currentPage !== root.wallpapersPage && root.currentPage !== root.presetsPage && root.currentPage !== root.cheatsheetPage
+             columns: 4
+             rowSpacing: 12
+             columnSpacing: 12
+@@ -690,6 +700,14 @@ Item {
+             }
+         }
+ 
++        Loader {
++            id: cheatsheetLoader
++            Layout.fillWidth: true
++            Layout.fillHeight: true
++            active: root.currentPage === root.cheatsheetPage
++            visible: active
++            sourceComponent: DashboardCheatsheetPage {}
++        }
+         Loader {
+             id: homeLoader
+             Layout.fillWidth: true
+diff --git a/modules/ii/settings/Settings.qml b/modules/ii/settings/Settings.qml
+index d743410..1ce2c4b 100644
+--- a/modules/ii/settings/Settings.qml
++++ b/modules/ii/settings/Settings.qml
+@@ -173,4 +173,18 @@ Scope {
+         description: "Toggles settings panel"
+         onPressed: GlobalStates.settingsOpen = !GlobalStates.settingsOpen;
+     }
++    // Super + / : abrir/fechar a pagina de atalhos do Dashboard
++    CompositorGlobalShortcut {
++        name: "cheatsheetToggle"
++        description: "Toggle bilingual shortcut guide"
++        onPressed: {
++            if (GlobalStates.settingsOpen && GlobalStates.dashboardPage === 5) {
++                GlobalStates.settingsOpen = false;
++            } else {
++                GlobalStates.dashboardPage = 5;
++                GlobalStates.settingsOpen = true;
++            }
++        }
++    }
++
+ }
+\ No newline at end of file
+diff --git a/modules/ii/settings/pages/BackgroundConfig.qml b/modules/ii/settings/pages/BackgroundConfig.qml
+index aeb370c..f54fc43 100644
+--- a/modules/ii/settings/pages/BackgroundConfig.qml
++++ b/modules/ii/settings/pages/BackgroundConfig.qml
+@@ -1054,6 +1054,34 @@ ContentPage {
+                         Config.options.background.widgets.customImage.enable = checked;
+                     }
+                 }
++                ConfigTextArea {
++                    id: changliImagePathField
++                    Layout.fillWidth: true
++                    buttonIcon: "folder_open"
++                    text: Translation.tr("Image file or folder")
++                    placeholderText: "Select an image or folder..."
++                    fieldWidth: 300
++                    value: Config.options.background.widgets.customImage.path
++                    onValueChanged: changliPathDebounce.restart()
++                    Timer {
++                        id: changliPathDebounce
++                        interval: 500
++                        repeat: false
++                        onTriggered: {
++                            if (changliImagePathField.value !== Config.options.background.widgets.customImage.path)
++                                Config.options.background.widgets.customImage.path = changliImagePathField.value
++                        }
++                    }
++                }
++                ConfigSpinBox {
++                    icon: "timer"
++                    text: Translation.tr("Change image every (seconds)")
++                    value: Config.options.background.widgets.customImage.intervalSeconds
++                    from: 2
++                    to: 3600
++                    stepSize: 1
++                    onValueChanged: Config.options.background.widgets.customImage.intervalSeconds = value
++                }
+                 ConfigSelectionShapeArray {
+                     currentValue: Config.options.background.widgets.customImage.shape
+                     shapeColor: Appearance.colors.colPrimary
+@@ -1069,29 +1097,63 @@ ContentPage {
+                         Config.options.background.widgets.customImage.shape = newValue
+                     }
+                 }
+-                ConfigSwitch {
+-                    Layout.fillWidth: true
+-                    buttonIcon: "photo_size_select_large"
+-                    text: Translation.tr("Image card")
+-                    checked: Config.options.background.widgets.imageCard.enable
+-                    onCheckedChanged: {
+-                        Config.options.background.widgets.imageCard.enable = checked;
+-                    }
+-                }
+-                ConfigSelectionArray {
+-                    enabled: Config.options.background.widgets.imageCard.enable
+-                    text: Translation.tr("Image card layout")
+-                    icon: "grid_view"
+-                    currentValue: Config.options.background.widgets.imageCard.sizeMode
+-                    options: [
+-                        { displayName: "1x1", icon: "crop_square", value: "1x1" },
+-                        { displayName: "1x2", icon: "crop_landscape", value: "1x2" },
+-                        { displayName: "1x3", icon: "crop_16_9", value: "1x3" },
+-                        { displayName: "2x2", icon: "grid_view", value: "2x2" },
+-                        { displayName: "2x3", icon: "view_module", value: "2x3" }
+-                    ]
+-                    onSelected: newValue => {
+-                        Config.options.background.widgets.imageCard.sizeMode = newValue
++                // Seis Image Cards independentes com tamanho livre.
++                Repeater {
++                    model: ["imageCard", "imageCard2", "imageCard3", "imageCard4", "imageCard5", "imageCard6"]
++                    delegate: ColumnLayout {
++                        id: imageCardEditor
++                        required property string modelData
++                        required property int index
++                        readonly property var entry: Config.options.background.widgets[modelData]
++                        Layout.fillWidth: true
++                        spacing: 4
++
++                        ConfigSwitch {
++                            Layout.fillWidth: true
++                            buttonIcon: "photo_size_select_large"
++                            text: Translation.tr("Image card") + " " + (imageCardEditor.index + 1)
++                            checked: imageCardEditor.entry.enable
++                            onCheckedChanged: imageCardEditor.entry.enable = checked
++                        }
++                        ConfigTextArea {
++                            id: cardPathInput
++                            Layout.fillWidth: true
++                            buttonIcon: "image"
++                            text: Translation.tr("Image path") + " " + (imageCardEditor.index + 1)
++                            placeholderText: "Select an image..."
++                            fieldWidth: 300
++                            value: imageCardEditor.entry.path
++                            onValueChanged: cardPathSave.restart()
++                            Timer {
++                                id: cardPathSave
++                                interval: 500
++                                repeat: false
++                                onTriggered: {
++                                    if (imageCardEditor.entry.path !== cardPathInput.value)
++                                        imageCardEditor.entry.path = cardPathInput.value
++                                }
++                            }
++                        }
++                        ConfigSlider {
++                            Layout.fillWidth: true
++                            text: Translation.tr("Width") + " (" + (imageCardEditor.index + 1) + ")"
++                            buttonIcon: "width"
++                            usePercentTooltip: false
++                            value: imageCardEditor.entry.cardWidth
++                            from: 90
++                            to: 1200
++                            // onValueChanged: imageCardEditor.entry.cardWidth = Math.round(value)
++                        }
++                        ConfigSlider {
++                            Layout.fillWidth: true
++                            text: Translation.tr("Height") + " (" + (imageCardEditor.index + 1) + ")"
++                            buttonIcon: "height"
++                            usePercentTooltip: false
++                            value: imageCardEditor.entry.cardHeight
++                            from: 90
++                            to: 850
++                            // onValueChanged: imageCardEditor.entry.cardHeight = Math.round(value)
++                        }
+                     }
+                 }
+             }
+diff --git a/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml b/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml
+index af5ee20..6b65c76 100644
+--- a/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml
++++ b/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml
+@@ -17,6 +17,7 @@ MouseArea {
+     property bool useDarkMode: Appearance.m3colors.darkmode
+     property bool showControls: false
+     property string source: "local"
++    readonly property string animatedHelper: String(Directories.home).replace(/^file:\/\//, "") + "/.config/quickshell/end4-pC/scripts/animated-picker.py"
+     property string selectedResolution: "1080p"
+     property string selectedColorGroup: ""
+     property bool toolbarVisible: showControls || Config.options.wallpaperSelector.showSearchbar
+@@ -86,11 +87,21 @@ MouseArea {
+                 // onWallpaperPathChanged to fire with the real transition animation.
+                 if (Config.options.background.enableWallpaperPreview)
+                     Wallpapers.stopPreview();
++                // [end4pc-wallpaper-layout-switch-v2] Registra o layout estatico antes da troca.
++                if (!WallpaperLayouts.prepareSwitch(filePath)) return;
++                if (!stopAnimatedWallpaper.running) stopAnimatedWallpaper.running = true;
+                 Wallpapers.select(filePath, root.useDarkMode);
+             }
+         }
+     }
+ 
++    // If the user picks a static wallpaper, remove only the mpvpaper instance
++    // on the focused monitor. The stock Wallpapers service remains unchanged.
++    Process {
++        id: stopAnimatedWallpaper
++        command: ["python3", root.animatedHelper, "stop"]
++    }
++
+     acceptedButtons: Qt.BackButton | Qt.ForwardButton
+     onPressed: event => {
+         if (event.button === Qt.BackButton) {
+@@ -270,7 +281,7 @@ MouseArea {
+ 
+                     Toolbar {
+                         anchors.centerIn: parent
+-                        visible: root.source !== "blapples" && root.source !== "naive" && root.source !== "wallhaven"
++                        visible: root.source !== "animated" && root.source !== "blapples" && root.source !== "naive" && root.source !== "wallhaven"
+                         colBackground: Appearance.colors.colLayer1
+                         outerShadow: true
+ 
+@@ -386,6 +397,7 @@ MouseArea {
+                             implicitWidth: 120
+                             model: [
+                                 { value: "local",     displayName: Translation.tr("Local") },
++                                { value: "animated", displayName: "Animated" },
+                                 { value: "wallhaven", displayName: Translation.tr("Wallhaven") },
+                                 { value: "blapples",  displayName: Translation.tr("Blapples") },
+                                 { value: "naive",     displayName: Translation.tr("NA-ive") },
+@@ -437,6 +449,7 @@ MouseArea {
+                         id: gridLoader
+                         anchors.fill: parent
+                         sourceComponent: root.source === "local" ? localGridComponent
++                            : root.source === "animated" ? animatedGridComponent
+                             : root.source === "wallhaven" ? wallhavenGridComponent
+                             : onlineGridComponent
+                     }
+@@ -450,6 +463,14 @@ MouseArea {
+                         }
+                     }
+ 
++                    Component {
++                        id: animatedGridComponent
++                        AnimatedWallpaperGrid {
++                            columns: root.columns
++                            previewCellAspectRatio: root.previewCellAspectRatio
++                        }
++                    }
++
+                     Component {
+                         id: wallhavenGridComponent
+                         WallhavenSearchGrid {
+@@ -858,6 +879,69 @@ MouseArea {
+                         }
+                     }
+                 }
++
++                // Caelestia-inspired mode tabs. Other original online sources
++                // continue to use their existing picker and toolbars.
++                RowLayout {
++                    id: wallpaperModeTabs
++                    Layout.fillWidth: true
++                    Layout.preferredHeight: visible ? 48 : 0
++                    Layout.leftMargin: 18
++                    Layout.rightMargin: 18
++                    Layout.bottomMargin: 2
++                    visible: root.source === "local" || root.source === "animated"
++                    spacing: 8
++
++                    Item { Layout.fillWidth: true }
++                    Repeater {
++                        model: [
++                            { id: "local", title: "Static", icon: "image" },
++                            { id: "animated", title: "Animated", icon: "movie" }
++                        ]
++                        delegate: RippleButton {
++                            id: wallpaperModeButton
++                            required property var modelData
++                            implicitWidth: 115
++                            implicitHeight: 36
++                            buttonRadius: 18
++                            toggled: root.source === modelData.id
++                            colBackgroundToggled: Appearance.colors.colSecondaryContainer
++                            onClicked: {
++                                root.source = modelData.id
++                                sourceCombo.currentIndex = modelData.id === "animated" ? 1 : 0
++                            }
++                            contentItem: RowLayout {
++                                anchors.centerIn: parent
++                                spacing: 6
++                                MaterialSymbol {
++                                    text: wallpaperModeButton.modelData.icon
++                                    iconSize: 18
++                                }
++                                StyledText {
++                                    text: wallpaperModeButton.modelData.title
++                                    font.pixelSize: Appearance.font.pixelSize.small
++                                }
++                            }
++                        }
++                    }
++                    RippleButton {
++                        implicitWidth: 90
++                        implicitHeight: 36
++                        buttonRadius: 18
++                        onClicked: {
++                            if (root.source === "animated") gridLoader.item?.refresh()
++                            else root.updateThumbnails()
++                        }
++                        contentItem: RowLayout {
++                            anchors.centerIn: parent
++                            spacing: 5
++                            MaterialSymbol { text: "refresh"; iconSize: 18 }
++                            StyledText { text: "Refresh"; font.pixelSize: Appearance.font.pixelSize.small }
++                        }
++                    }
++                    Item { Layout.fillWidth: true }
++                }
++
+             }
+         }
+     }
+diff --git a/scripts/colors/switchwall.sh b/scripts/colors/switchwall.sh
+index 131ae81..55481a1 100755
+--- a/scripts/colors/switchwall.sh
++++ b/scripts/colors/switchwall.sh
+@@ -141,7 +141,7 @@ CUSTOM_DIR="$XDG_CONFIG_HOME/hypr/custom"
+ RESTORE_SCRIPT_DIR="$CUSTOM_DIR/scripts"
+ RESTORE_SCRIPT="$RESTORE_SCRIPT_DIR/__restore_video_wallpaper.sh"
+ THUMBNAIL_DIR="$RESTORE_SCRIPT_DIR/mpvpaper_thumbnails"
+-MPVPAPER_FLAGS="-p -a max"
++MPVPAPER_FLAGS=""
+ VIDEO_OPTS="no-audio loop hwdec=auto scale=bilinear interpolation=no video-sync=display-resample panscan=1.0 video-scale-x=1.0 video-scale-y=1.0 video-align-x=0.5 video-align-y=0.5 load-scripts=no"
+ # One control socket per output, so the shell can pause and resume the live
+ # wallpaper instead of only being able to kill it.
+diff --git a/services/DesktopWidgets.qml b/services/DesktopWidgets.qml
+index c114926..ecb59fa 100644
+--- a/services/DesktopWidgets.qml
++++ b/services/DesktopWidgets.qml
+@@ -22,6 +22,11 @@ Singleton {
+         { key: "images",      icon: "photo_library",     name: Translation.tr("Image Converter") },
+         { key: "customImage", icon: "image",             name: Translation.tr("Custom Image") },
+         { key: "imageCard",   icon: "photo_size_select_large", name: Translation.tr("Image Card") },
++        { key: "imageCard2", icon: "photo_size_select_large", name: Translation.tr("Image Card") + " 2" },
++        { key: "imageCard3", icon: "photo_size_select_large", name: Translation.tr("Image Card") + " 3" },
++        { key: "imageCard4", icon: "photo_size_select_large", name: Translation.tr("Image Card") + " 4" },
++        { key: "imageCard5", icon: "photo_size_select_large", name: Translation.tr("Image Card") + " 5" },
++        { key: "imageCard6", icon: "photo_size_select_large", name: Translation.tr("Image Card") + " 6" },
+         { key: "sticker",     icon: "sticker",           name: Translation.tr("Sticker") }
+     ]
+ 
+diff --git a/services/Wallpapers.qml b/services/Wallpapers.qml
+index 36a2695..73349e6 100644
+--- a/services/Wallpapers.qml
++++ b/services/Wallpapers.qml
+@@ -469,6 +469,13 @@ Singleton {
+         const items = [];
+         for (let i = 0; i < count; i++) {
+             const fn = folderModel.get(i, "fileName") || "";
++            // [end4pc-hide-animated-static-v1] Oculta somente a pasta de videos
++            // na raiz da galeria Static; ela continua acessivel na aba Animated.
++            if (Boolean(folderModel.get(i, "fileIsDir"))
++                    && fn.toLowerCase() === "animated"
++                    && root.effectiveDirectory === root.getCleanDirPath(root.defaultFolder)) {
++                continue;
++            }
+             const fp = folderModel.get(i, "filePath") || "";
+             const fu = (fp && fp.length) ? ("file://" + fp) : (folderModel.get(i, "fileUrl") || "");
+             const modified = folderModel.get(i, "fileModified");
+diff --git a/translations/en_US.json b/translations/en_US.json
+index ffd24e3..377aff4 100644
+--- a/translations/en_US.json
++++ b/translations/en_US.json
+@@ -218,7 +218,6 @@
+   "Extra wallpaper zoom (%)": "Extra wallpaper zoom (%)",
+   "GitHub": "GitHub",
+   "%1 | Right-click to configure": "%1 | Right-click to configure",
+-  "Edit directory": "Edit directory",
+   "Action": "Action",
+   "Search": "Search",
+   "Tip: right-clicking a group\nalso expands it": "Tip: right-clicking a group\nalso expands it",
+@@ -412,7 +411,6 @@
+   "Eye protection": "Eye protection",
+   "Layers": "Layers",
+   "Listening...": "Listening...",
+-  "LMB to enable/disable\nRMB to toggle size\nScroll to swap position": "LMB to enable/disable\nRMB to toggle size\nScroll to swap position",
+   "Identify Music": "Identify Music",
+   "Quick toggles": "Quick toggles",
+   "Hide sussy/anime wallpapers": "Hide sussy/anime wallpapers",
+@@ -435,7 +433,6 @@
+   "Internet": "Internet",
+   "Record": "Record",
+   "Circle selection": "Circle selection",
+-  "Edit quick toggles": "Edit quick toggles",
+   "Virtual Keyboard": "Virtual Keyboard",
+   "Music Recognized": "Music Recognized",
+   "EasyEffects": "EasyEffects",
+@@ -1216,7 +1213,6 @@
+   "No upcoming matches to build a parlay": "No upcoming matches to build a parlay",
+   "Combined probability": "Combined probability",
+   "Fair odds": "Fair odds",
+-  "Based only on statistics. Not a guarantee.": "Based only on statistics. Not a guarantee.",
+   "Live": "Live",
+   "Final": "Final",
+   "Few data": "Few data",
+@@ -1228,7 +1224,6 @@
+   "Statistical estimate only. No guarantee: betting involves risk.": "Statistical estimate only. No guarantee: betting involves risk.",
+   "Please read": "Please read",
+   "This page is for information and entertainment only. Probabilities are statistical estimates built from the current season's data and do not guarantee any result: football is unpredictable. Betting involves a real risk of losing money. Only bet what you can afford to lose, only if you are of legal age, and seek help if gambling stops being fun.": "This page is for information and entertainment only. Probabilities are statistical estimates built from the current season's data and do not guarantee any result: football is unpredictable. Betting involves a real risk of losing money. Only bet what you can afford to lose, only if you are of legal age, and seek help if gambling stops being fun.",
+-  "Football alerts": "Football alerts",
+   "Live alerts": "Live alerts",
+   "Alerts for": "Alerts for",
+   "My parlay": "My parlay",
+@@ -1263,6 +1258,320 @@
+   "Charging bolt": "Charging bolt",
+   "Choose how the battery looks in the bar": "Choose how the battery looks in the bar",
+   "Magnification": "Magnification",
+-  "Magnification amount": "Magnification amount",
+-  "Magnification amount (%)": "Magnification amount (%)"
++  "Magnification amount (%)": "Magnification amount (%)",
++  "Nothing playing": "Nothing playing",
++  "Drag the \"%1\" folder into the GitHub page and press Propose changes": "Drag the \"%1\" folder into the GitHub page and press Propose changes",
++  "Widgets with a star are shown in the desktop menu": "Widgets with a star are shown in the desktop menu",
++  "Prefix: Emojis": "Prefix: Emojis",
++  "Frame color": "Frame color",
++  "Installed": "Installed",
++  "Update system": "Update system",
++  "Hide sussy wallpapers": "Hide sussy wallpapers",
++  "Toggles": "Toggles",
++  "Placement": "Placement",
++  "Script": "Script",
++  "Active opacity": "Active opacity",
++  "Transition": "Transition",
++  "Cut": "Cut",
++  "Tiling layout": "Tiling layout",
++  "Wallpaper zoom (%)": "Wallpaper zoom (%)",
++  "Uploading your preset": "Uploading your preset",
++  "Battery sounds": "Battery sounds",
++  "Drag widgets between zones · right-click to remove · drop on the tray to hide": "Drag widgets between zones · right-click to remove · drop on the tray to hide",
++  "Preview": "Preview",
++  "Browse presets shared by the community on blapples.github.io. Nothing is downloaded until you press the button.": "Browse presets shared by the community on blapples.github.io. Nothing is downloaded until you press the button.",
++  "Position": "Position",
++  "Prefix: Icons": "Prefix: Icons",
++  "Window swallowing": "Window swallowing",
++  "Tap again to remove": "Tap again to remove",
++  "Prefix: Action": "Prefix: Action",
++  "Can't upload this preset": "Can't upload this preset",
++  "GitHub sign in needed": "GitHub sign in needed",
++  "Window previews": "Window previews",
++  "VPN": "VPN",
++  "Already removed": "Already removed",
++  "Follow clock font": "Follow clock font",
++  "Choose how settings open": "Choose how settings open",
++  "System updates (Arch)": "System updates (Arch)",
++  "Blur size": "Blur size",
++  "Auto transparency": "Auto transparency",
++  "Window rounding": "Window rounding",
++  "Same wallpaper (lock)": "Same wallpaper (lock)",
++  "Grid columns": "Grid columns",
++  "Blur samples": "Blur samples",
++  "Update check unavailable": "Update check unavailable",
++  "Prefix: Keybinds": "Prefix: Keybinds",
++  "It was installed from the gallery and belongs to its author": "It was installed from the gallery and belongs to its author",
++  "More folders": "More folders",
++  "Use Hyprlock": "Use Hyprlock",
++  "Import": "Import",
++  "AVAILABLE": "AVAILABLE",
++  "Clear all": "Clear all",
++  "On battery": "On battery",
++  "Image Card": "Image Card",
++  "Weight": "Weight",
++  "Clipboard previews": "Clipboard previews",
++  "System file picker": "System file picker",
++  "Quick sliders": "Quick sliders",
++  "Themed": "Themed",
++  "Plugged in": "Plugged in",
++  "Hidden from the desktop menu": "Hidden from the desktop menu",
++  "Mic slider": "Mic slider",
++  "Charge rate": "Charge rate",
++  "Translation failed. Check your connection and try again.": "Translation failed. Check your connection and try again.",
++  "Profile": "Profile",
++  "left": "left",
++  "Blur wallpaper": "Blur wallpaper",
++  "Brightness slider": "Brightness slider",
++  "Tooltip style": "Tooltip style",
++  "Disable acceleration": "Disable acceleration",
++  "Good morning": "Good morning",
++  "Border size": "Border size",
++  "Space width": "Space width",
++  "Horizontal order": "Horizontal order",
++  "Window blur": "Window blur",
++  "Ring size": "Ring size",
++  "Browse online": "Browse online",
++  "Custom image": "Custom image",
++  "Change every (min)": "Change every (min)",
++  "Morning": "Morning",
++  "Could not prepare the preset folder": "Could not prepare the preset folder",
++  "Shell": "Shell",
++  "Choose the preview image (a screenshot of your desktop)": "Choose the preview image (a screenshot of your desktop)",
++  "On desktop": "On desktop",
++  "Tasks": "Tasks",
++  "Only the look is shared": "Only the look is shared",
++  "Up since": "Up since",
++  "No description": "No description",
++  "Adaptive alignment": "Adaptive alignment",
++  "Could not remove it": "Could not remove it",
++  "Dock style": "Dock style",
++  "Inactive opacity": "Inactive opacity",
++  "Icon size": "Icon size",
++  "Tap again to delete": "Tap again to delete",
++  "Online presets": "Online presets",
++  "Close window": "Close window",
++  "Set a folder with images to pick your avatar": "Set a folder with images to pick your avatar",
++  "Toolbars": "Toolbars",
++  "Removing from the gallery": "Removing from the gallery",
++  "Loading…": "Loading…",
++  "How colors are made from your wallpaper": "How colors are made from your wallpaper",
++  "OSD timeout (ms)": "OSD timeout (ms)",
++  "Gaps out": "Gaps out",
++  "Dashboard": "Dashboard",
++  "Appearance": "Appearance",
++  "Roundness": "Roundness",
++  "Enable online presets": "Enable online presets",
++  "Where the bar lives": "Where the bar lives",
++  "Border colors": "Border colors",
++  "Home in quick access": "Home in quick access",
++  "Image card layout": "Image card layout",
++  "Middle button emulation": "Middle button emulation",
++  "Weather location": "Weather location",
++  "Follow frame color": "Follow frame color",
++  "Download this preset to see its bar, colors and widgets, and to apply it.": "Download this preset to see its bar, colors and widgets, and to apply it.",
++  "Preset installed with missing images": "Preset installed with missing images",
++  "Shape": "Shape",
++  "Bottom group": "Bottom group",
++  "Live wallpaper folder": "Live wallpaper folder",
++  "The shell sends it for you": "The shell sends it for you",
++  "Opening a pull request to remove \"%1\"": "Opening a pull request to remove \"%1\"",
++  "Border color": "Border color",
++  "min": "min",
++  "Media player": "Media player",
++  "Custom font": "Custom font",
++  "Icon spacing": "Icon spacing",
++  "Vertical order": "Vertical order",
++  "Screen rounded corners": "Screen rounded corners",
++  "Width": "Width",
++  "Pixel clock": "Pixel clock",
++  "Live wallpaper playing": "Live wallpaper playing",
++  "Install failed": "Install failed",
++  "Live wallpaper paused": "Live wallpaper paused",
++  "Pin button": "Pin button",
++  "Install": "Install",
++  "Wallpapers toggle": "Wallpapers toggle",
++  "Search settings": "Search settings",
++  "Album colors": "Album colors",
++  "Pinned by default": "Pinned by default",
++  "Variable refresh rate": "Variable refresh rate",
++  "Image card": "Image card",
++  "Snap lines": "Snap lines",
++  "Downloading…": "Downloading…",
++  "Rename": "Rename",
++  "Daily": "Daily",
++  "Apps button": "Apps button",
++  "Move to workspace": "Move to workspace",
++  "Unlock keyring": "Unlock keyring",
++  "Preset sent": "Preset sent",
++  "Could not open the pull request": "Could not open the pull request",
++  "Remove from gallery": "Remove from gallery",
++  "Opening a pull request for \"%1\"": "Opening a pull request for \"%1\"",
++  "Saved as \"%1\", but these files were not found: %2": "Saved as \"%1\", but these files were not found: %2",
++  "Upload a preset once, or run gh auth login in a terminal": "Upload a preset once, or run gh auth login in a terminal",
++  "No VPN profiles yet | Click to import one": "No VPN profiles yet | Click to import one",
++  "Only title": "Only title",
++  "Open new instance": "Open new instance",
++  "Gaps in": "Gaps in",
++  "Today, it's %1 %2 of %3 with %4": "Today, it's %1 %2 of %3 with %4",
++  "Pacman + AUR": "Pacman + AUR",
++  "A file manager opens right after you continue. The picture you pick there becomes the preview everyone sees in the gallery. Choose a screenshot of your desktop with the bar visible, in 16:9, without private windows or notifications.": "A file manager opens right after you continue. The picture you pick there becomes the preview everyone sees in the gallery. Choose a screenshot of your desktop with the bar visible, in 16:9, without private windows or notifications.",
++  "Drop here": "Drop here",
++  "Today's %1": "Today's %1",
++  "Desktop widgets": "Desktop widgets",
++  "Battery %1% left": "Battery %1% left",
++  "Could not copy the preset files": "Could not copy the preset files",
++  "Background color": "Background color",
++  "Auto styling (Gemini)": "Auto styling (Gemini)",
++  "Lock on startup": "Lock on startup",
++  "No VPN profiles yet": "No VPN profiles yet",
++  "Absolute corner": "Absolute corner",
++  "Kernel": "Kernel",
++  "Blur background": "Blur background",
++  "Mono font size": "Mono font size",
++  "Upload your preset": "Upload your preset",
++  "Dial style": "Dial style",
++  "Overwritten": "Overwritten",
++  "Blur passes": "Blur passes",
++  "Check interval (min)": "Check interval (min)",
++  "Removal sent": "Removal sent",
++  "Nothing new to download": "Nothing new to download",
++  "Hide clipboard images": "Hide clipboard images",
++  "A pull request is opened on the community gallery with your preset and the image. When it is done you get a notification and the link.": "A pull request is opened on the community gallery with your preset and the image. When it is done you get a notification and the link.",
++  "Hide cursor after (s)": "Hide cursor after (s)",
++  "Hide splash text": "Hide splash text",
++  "Translating...": "Translating...",
++  "Resize on borders": "Resize on borders",
++  "Nothing to do": "Nothing to do",
++  "Divider style": "Divider style",
++  "Selected date": "Selected date",
++  "Bar background": "Bar background",
++  "Search bar": "Search bar",
++  "Hidden": "Hidden",
++  "Search presets": "Search presets",
++  "Here is what happens when you upload \"%1\".": "Here is what happens when you upload \"%1\".",
++  "Working…": "Working…",
++  "Download preset": "Download preset",
++  "Live wallpaper": "Live wallpaper",
++  "Video recording path": "Video recording path",
++  "Split Hug": "Split Hug",
++  "UI background": "UI background",
++  "Smart split (follow cursor)": "Smart split (follow cursor)",
++  "Nothing to upload": "Nothing to upload",
++  "Change interval (min)": "Change interval (min)",
++  "Workspaces style": "Workspaces style",
++  "Checking...": "Checking...",
++  "Time format": "Time format",
++  "Close all windows": "Close all windows",
++  "Primary": "Primary",
++  "Media controls": "Media controls",
++  "Fonts, accounts, keys, commands and your clipboard stay on your computer. Everything you upload is public, so only use images you own or are free to share.": "Fonts, accounts, keys, commands and your clipboard stay on your computer. Everything you upload is public, so only use images you own or are free to share.",
++  "Exported": "Exported",
++  "\"%1\" is already published with these exact files": "\"%1\" is already published with these exact files",
++  "Continue": "Continue",
++  "Cookie clock": "Cookie clock",
++  "Performance profile": "Performance profile",
++  "Shown in the desktop menu": "Shown in the desktop menu",
++  "Wallpaper tools": "Wallpaper tools",
++  "Badge": "Badge",
++  "Prefix: Shell command": "Prefix: Shell command",
++  "Levenshtein search": "Levenshtein search",
++  "All done": "All done",
++  "sec": "sec",
++  "Custom wallpaper folder": "Custom wallpaper folder",
++  "Pause below charge (%, 0 to ignore)": "Pause below charge (%, 0 to ignore)",
++  "Dashboard animation speed": "Dashboard animation speed",
++  "Alignment grid": "Alignment grid",
++  "Record screen": "Record screen",
++  "Preset installed": "Preset installed",
++  "h": "h",
++  "Digital clock": "Digital clock",
++  "Daily clock": "Daily clock",
++  "Delete?": "Delete?",
++  "Animation speed": "Animation speed",
++  "My presets": "My presets",
++  "Animation presets": "Animation presets",
++  "One-time GitHub setup": "One-time GitHub setup",
++  "Select All": "Select All",
++  "Undo": "Undo",
++  "Checked before it appears": "Checked before it appears",
++  "Password shapes": "Password shapes",
++  "Floating window with cards": "Floating window with cards",
++  "Full overlay panel": "Full overlay panel",
++  "Apply preset": "Apply preset",
++  "Toggle columns": "Toggle columns",
++  "Redo": "Redo",
++  "Web search base URL": "Web search base URL",
++  "Screenshot path (empty = copy)": "Screenshot path (empty = copy)",
++  "Prefix: Clipboard": "Prefix: Clipboard",
++  "Prefix: Web search": "Prefix: Web search",
++  "Interface language": "Interface language",
++  "Sign in to GitHub, only once": "Sign in to GitHub, only once",
++  "Avatar folder, e.g. ~/Pictures/avatars": "Avatar folder, e.g. ~/Pictures/avatars",
++  "Palette style": "Palette style",
++  "Direct scanout": "Direct scanout",
++  "Share your preset": "Share your preset",
++  "Wallpapers": "Wallpapers",
++  "Workspace back and forth": "Workspace back and forth",
++  "Fahrenheit": "Fahrenheit",
++  "Preferred player": "Preferred player",
++  "Good evening": "Good evening",
++  "Overlap windows": "Overlap windows",
++  "Style (locked)": "Style (locked)",
++  "Update checks": "Update checks",
++  "Opening zoom": "Opening zoom",
++  "Finish the steps in the terminal. Your preset is sent right after.": "Finish the steps in the terminal. Your preset is sent right after.",
++  "No presets here yet": "No presets here yet",
++  "Currently %1 with humidity %2 and wind %3.": "Currently %1 with humidity %2 and wind %3.",
++  "No presets match your search": "No presets match your search",
++  "Volume slider": "Volume slider",
++  "Upload failed": "Upload failed",
++  "\"%1\" leaves the gallery once the pull request is merged.": "\"%1\" leaves the gallery once the pull request is merged.",
++  "Compact overlay panel": "Compact overlay panel",
++  "Warp to new workspace": "Warp to new workspace",
++  "Every preset is checked automatically and new authors are reviewed by hand. Once it is merged it shows up for everyone, and you can take it back any time with Remove from gallery.": "Every preset is checked automatically and new authors are reviewed by hand. Once it is merged it shows up for everyone, and you can take it back any time with Remove from gallery.",
++  "Animate change": "Animate change",
++  "\"%1\" is waiting for its check. It appears in the gallery once it is merged.": "\"%1\" is waiting for its check. It appears in the gallery once it is merged.",
++  "Import a WireGuard or OpenVPN file": "Import a WireGuard or OpenVPN file",
++  "Pomodoro sounds": "Pomodoro sounds",
++  "Save current setup as…  name, description": "Save current setup as…  name, description",
++  "Keep loaded": "Keep loaded",
++  "Quick toggles style": "Quick toggles style",
++  "Good night": "Good night",
++  "Edit sidebar": "Edit sidebar",
++  "GPS location": "GPS location",
++  "Variant": "Variant",
++  "Group color": "Group color",
++  "Morph": "Morph",
++  "Saved as \"%1\" in My presets. Wallpapers are in Pictures/Wallpapers.": "Saved as \"%1\" in My presets. Wallpapers are in Pictures/Wallpapers.",
++  "Prefix: Apps": "Prefix: Apps",
++  "Password to power off": "Password to power off",
++  "Unread count": "Unread count",
++  "%1 on the desktop · %2 in the menu": "%1 on the desktop · %2 in the menu",
++  "Screen frame": "Screen frame",
++  "Good afternoon": "Good afternoon",
++  "Layouts": "Layouts",
++  "Pin to dock": "Pin to dock",
++  "Set up": "Set up",
++  "XWayland sharp apps": "XWayland sharp apps",
++  "Tap again to clear": "Tap again to clear",
++  "Paste": "Paste",
++  "Allow tearing": "Allow tearing",
++  "\"%1\" is not in the gallery": "\"%1\" is not in the gallery",
++  "Choose a preview image": "Choose a preview image",
++  "Settings panel style": "Settings panel style",
++  "CPU temperature": "CPU temperature",
++  "%1 | Right-click to manage profiles": "%1 | Right-click to manage profiles",
++  "Floating image source": "Floating image source",
++  "Popup timeout (ms)": "Popup timeout (ms)",
++  "updates available": "updates available",
++  "If the GitHub CLI (gh) is missing, a terminal opens to install it and sign you in through your browser. Nothing is typed in the shell and your password is never stored. If you already use gh, this step is skipped.": "If the GitHub CLI (gh) is missing, a terminal opens to install it and sign you in through your browser. Nothing is typed in the shell and your password is never stored. If you already use gh, this step is skipped.",
++  "Also in the desktop menu": "Also in the desktop menu",
++  "Card": "Card",
++  "Wallpaper blur": "Wallpaper blur",
++  "Pause on battery": "Pause on battery",
++  "Timeout (s)": "Timeout (s)",
++  "Old sine cookie": "Old sine cookie",
++  "Hide Hyprland logo": "Hide Hyprland logo",
++  "Media info": "Media info"
+ }
+\ No newline at end of file

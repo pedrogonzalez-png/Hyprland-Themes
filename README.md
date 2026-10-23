@@ -82,3 +82,15 @@ Wallpapers and copyrighted character images are not bundled. Supply your own wal
 - Original games and characters belong to their respective creators; this repository is an unofficial fan customization.
 
 These themes are an add-on, not an official release of either upstream project.
+
+## Desktop completo (prévia)
+
+Este repositório também inclui configurações de Hyprland, Quickshell, Rofi, Kitty, Fish e Fastfetch.
+
+O `install-desktop.sh` aplica essas personalizações sobre uma instalação prévia do end-4. Não instala o Arch Linux ou o Hyprland do zero.
+
+Primeiro execute `bash install-desktop.sh --check`.
+
+Consulte [as instruções e limitações](INSTALL-DESKTOP.md).
+
+O Controller Mode é privado e não está incluído.

@@ -1,0 +1,98 @@
+configuration {
+    modi: "drun";
+    show-icons: true;
+    icon-theme: "Papirus";
+    display-drun: "Buscar:";
+    drun-display-format: "{name}";
+}
+
+* {
+    font: "sans-serif bold 12";
+    background-color: transparent;
+    
+    /* --- Paleta de Cores Exata --- */
+    bg-win: #000000cc;         /* Fundo da janela (Preto transparente) */
+    border-color-win: #ff0000; /* Borda da janela (Vermelho) */
+    
+    bg-input: #282c34;         /* Fundo da barra de pesquisa */
+    txt-prompt: #e06c75;       /* Texto vermelho/coral do prompt */
+    txt-input: #ffffff;        /* Texto branco ao digitar */
+    txt-placeholder: #abb2bf;  /* Texto de dica cinza */
+    
+    bg-item: #fdf6e3;          /* Fundo dos aplicativos (Creme) */
+    txt-item: #000000;         /* Texto dos aplicativos (Preto) */
+    
+    bg-sel: #4e6074;           /* Fundo do app selecionado (Azul acinzentado) */
+    txt-sel: #ffffff;          /* Texto do app selecionado (Branco) */
+}
+
+window {
+    width: 70%;
+    height: 70%;
+    background-color: @bg-win;
+    border: 2px;
+    border-color: @border-color-win;
+    border-radius: 12px;
+    padding: 30px;
+}
+
+mainbox {
+    spacing: 20px;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    spacing: 10px;
+    background-color: @bg-input;
+    border-radius: 10px;
+    padding: 15px;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @txt-prompt;
+    font: "sans-serif bold 14";
+}
+
+entry {
+    text-color: @txt-input;
+    placeholder: "Type t...filter75/75";
+    placeholder-color: @txt-placeholder;
+}
+
+/* --- Configuração da Grade (Apps lado a lado) --- */
+listview {
+    columns: 5;
+    lines: 4;
+    spacing: 20px;
+    background-color: transparent;
+    layout: vertical;
+    flow: horizontal;
+}
+
+/* --- Configuração de cada Aplicativo --- */
+element {
+    orientation: vertical;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: @bg-item;
+    text-color: @txt-item;
+}
+
+element-icon {
+    size: 64px;
+    horizontal-align: 0.5;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+    text-color: inherit;
+    background-color: transparent;
+}
+
+/* --- Efeito ao Selecionar o App --- */
+element selected {
+    background-color: @bg-sel;
+    text-color: @txt-sel;
+}

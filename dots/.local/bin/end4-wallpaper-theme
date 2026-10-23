@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""end4-pC wallpaper-to-color-scheme association; edits only namedScheme in global config."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+CONFIG_HOME = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
+STATE_HOME = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state'))
+CONFIG = CONFIG_HOME / 'illogical-impulse' / 'config.json'
+LINKS = CONFIG_HOME / 'illogical-impulse' / 'wallpaper-scheme-links.json'
+STATE = STATE_HOME / 'end4-wallpaper-theme' / 'state.json'
+SWITCHWALL = CONFIG_HOME / 'quickshell' / 'end4-pC' / 'scripts' / 'colors' / 'switchwall.sh'
+SCHEME_DIRS = [
+    CONFIG_HOME / 'illogical-impulse' / 'schemes',
+    CONFIG_HOME / 'quickshell' / 'end4-pC' / 'scripts' / 'colors' / 'schemes',
+]
+CHARACTERS = {
+    'changli': 'Changli',
+    'hiyuki': 'Hiyuki',
+    'emilia': 'Emilia',
+    'furina': 'Furina',
+    'hotline': 'Hotline Miami',
+}
+
+
+def read_json(path, default=None):
+    try:
+        with path.open(encoding='utf-8') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        if default is not None:
+            return default
+        raise
+
+
+def atomic_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix='.' + path.name + '.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as out:
+            json.dump(data, out, indent=2, ensure_ascii=False)
+            out.write('\n')
+            out.flush()
+            os.fsync(out.fileno())
+        if path.exists():
+            shutil.copymode(path, tmp)
+        os.replace(tmp, path)
+    finally:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+
+
+def normalize(text):
+    return re.sub(r'[^a-z0-9]', '', text.casefold())
+
+
+def schemes():
+    found = {}
+    for directory in SCHEME_DIRS:
+        if not directory.is_dir():
+            continue
+        for path in directory.glob('*.json'):
+            if path.name.startswith('_'):
+                continue
+            try:
+                entry = read_json(path)
+                if not isinstance(entry, dict) or 'dark' not in entry:
+                    continue
+            except (OSError, ValueError, TypeError):
+                continue
+            label = str(entry.get('name', path.stem))
+            found[normalize(path.stem)] = path.stem
+            found[normalize(label)] = path.stem
+    return found
+
+
+def resolve(label):
+    return schemes().get(normalize(label))
+
+
+def active():
+    config = read_json(CONFIG)
+    wall = config.get('background', {}).get('wallpaperPath', '')
+    selected = config.get('appearance', {}).get('palette', {}).get('namedScheme', '')
+    if not isinstance(wall, str):
+        wall = ''
+    if not isinstance(selected, str):
+        selected = ''
+    return config, wall, selected
+
+
+def get_links():
+    data = read_json(LINKS, {'version': 1, 'wallpapers': {}})
+    if not isinstance(data.get('wallpapers'), dict):
+        raise ValueError('O arquivo de associações está inválido.')
+    return data
+
+
+def set_theme(config, scheme):
+    if config.get('appearance', {}).get('palette', {}).get('namedScheme', '') == scheme:
+        return False
+    backup = CONFIG.with_name('config.json.backup-antes-temas-wallpaper')
+    if not backup.exists():
+        shutil.copy2(CONFIG, backup)
+    config.setdefault('appearance', {}).setdefault('palette', {})['namedScheme'] = scheme
+    atomic_json(CONFIG, config)
+    return True
+
+
+def refresh_colors():
+    """Aplica as cores sem interromper o wallpaper."""
+    if not SWITCHWALL.is_file():
+        raise FileNotFoundError(
+            f'Script não encontrado: {SWITCHWALL}'
+        )
+
+    wallpaper = read_json(CONFIG).get(
+        'background', {}
+    ).get('wallpaperPath', '')
+
+    if not wallpaper:
+        raise ValueError('Nenhum wallpaper configurado.')
+
+    print('Atualizando as cores do end4-pC...')
+
+    subprocess.run(
+        [
+            'bash',
+            str(SWITCHWALL),
+            '--noswitch',
+            '--image',
+            wallpaper
+        ],
+        check=True
+    )
+
+
+def infer_scheme(wall):
+    target = wall.casefold()
+    for token, scheme_name in CHARACTERS.items():
+        if token in target:
+            return resolve(scheme_name)
+    return None
+
+
+def apply(force=False):
+    # Config file can be updated more than once when wallpaper is changed.
+    time.sleep(0.4)
+    config, wall, selected = active()
+    if not wall:
+        print('Nenhum wallpaper ativo registrado no config.json.')
+        return 0
+    state = read_json(STATE, {'last_wallpaper': ''})
+    if not force and state.get('last_wallpaper') == wall:
+        return 0  # Keep manual color-scheme changes intact.
+    mapping = get_links().get('wallpapers', {})
+    scheme = mapping.get(wall)
+    if scheme is not None:
+        scheme = resolve(scheme)
+        if scheme is None:
+            print(f'Tema associado não está instalado para: {wall}', file=sys.stderr)
+    else:
+        scheme = infer_scheme(wall)
+    # Record the last wallpaper before writing the config to avoid event loops.
+    atomic_json(STATE, {'last_wallpaper': wall})
+    if not scheme:
+        print('Wallpaper sem tema associado: mantive o tema atual.')
+        return 0
+    if scheme != selected:
+        set_theme(config, scheme)
+    # Mesmo se o tema já estiver selecionado, o wallpaper pode ter disparado
+    # geração de cores Material. Reaplicar restaura as cores nomeadas.
+    refresh_colors()
+    print(f'Tema aplicado: {scheme}')
+    return 0
+
+
+def bind(scheme_arg=None):
+    config, wall, selected = active()
+    if not wall:
+        raise ValueError('Selecione primeiro o wallpaper no end4-pC.')
+    scheme = resolve(scheme_arg or selected)
+    if not scheme:
+        raise ValueError('Tema não encontrado. Importe primeiro o JSON pelo botão Add scheme ou selecione o tema manualmente.')
+    data = get_links()
+    data['wallpapers'][wall] = scheme
+    atomic_json(LINKS, data)
+    atomic_json(STATE, {'last_wallpaper': wall})
+    set_theme(config, scheme)
+    refresh_colors()
+    print(f'Vinculado: {wall}\n      → {scheme}')
+    return 0
+
+
+def unbind():
+    _, wall, _ = active()
+    data = get_links()
+    if wall in data['wallpapers']:
+        del data['wallpapers'][wall]
+        atomic_json(LINKS, data)
+        print('Associação do wallpaper atual removida.')
+    else:
+        print('Wallpaper atual não tinha associação explícita.')
+    return 0
+
+
+def status():
+    _, wall, current = active()
+    mapped = get_links()['wallpapers'].get(wall)
+    print('Wallpaper atual: ', wall or '(nenhum)')
+    print('Tema atual:      ', current or '(automático)')
+    print('Associação:      ', mapped or '(por nome do arquivo / não vinculada)')
+    print('Temas conhecidos:', ', '.join(sorted(set(schemes().values()))) or '(nenhum)')
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Vincula wallpapers aos temas do end4-pC.')
+    sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('status', help='Mostra o wallpaper e o tema atual')
+    binder = sub.add_parser('bind', help='Vincula o wallpaper atual ao tema escolhido')
+    binder.add_argument('scheme', nargs='?', help='Nome do esquema (opcional: usa o tema atual)')
+    sub.add_parser('unbind', help='Remove associação explícita do wallpaper atual')
+    applier = sub.add_parser('apply', help='Aplica tema vinculado após troca de wallpaper')
+    applier.add_argument('--force', action='store_true', help='Reaplica mesmo sem wallpaper novo')
+    args = parser.parse_args()
+    try:
+        if args.command == 'status':
+            return status()
+        if args.command == 'bind':
+            return bind(args.scheme)
+        if args.command == 'unbind':
+            return unbind()
+        if args.command == 'apply':
+            return apply(args.force)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+        print(f'Erro: {error}', file=sys.stderr)
+        return 1
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())
