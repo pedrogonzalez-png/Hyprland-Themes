@@ -199,7 +199,7 @@ backup_and_copy() {
     mkdir -p "$(dirname -- "$old")"
     cp -a -- "$to" "$old"
   else
-    printf '%s\\0' "$to" >> "$backup/created-files.bin"
+    printf '%s\0' "$to" >> "$backup/created-files.bin"
   fi
   mkdir -p "$(dirname -- "$to")"
   cp -p -- "$from" "$to"
