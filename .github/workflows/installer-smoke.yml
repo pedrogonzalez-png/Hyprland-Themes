@@ -1,0 +1,19 @@
+name: Installer smoke tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Bash syntax
+        run: bash -n install-desktop.sh install.sh
+      - name: Exercise installer safely in temporary directories
+        run: python3 tests/test_installer.py
