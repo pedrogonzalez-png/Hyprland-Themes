@@ -1,0 +1,98 @@
+
+{
+  "_help": "Hiyuki - Crimson Night | Custom dark color scheme for end4-pC.",
+  "name": "Hiyuki",
+  "defaults": {
+    "primary": "red",
+    "secondary": "purple",
+    "tertiary": "blue"
+  },
+  "dark": {
+    "surface_dim": "#101118",
+    "surface": "#181A22",
+    "surface_bright": "#41465A",
+    "surface_container_lowest": "#111219",
+    "surface_container_low": "#232633",
+    "surface_container": "#2D3142",
+    "surface_container_high": "#383C50",
+    "surface_container_highest": "#484C60",
+    "on_surface": "#E7EAF4",
+    "on_surface_variant": "#C8CEDD",
+    "outline": "#AFC4E8",
+    "outline_variant": "#715A68",
+    "error": "#E7879B",
+    "on_accent": "#171923",
+    "accents": {
+      "red": "#C96A85",
+      "orange": "#D78196",
+      "yellow": "#D5A0B5",
+      "green": "#A49BC5",
+      "teal": "#8DA8C6",
+      "cyan": "#AFC4E8",
+      "blue": "#A0B2DF",
+      "purple": "#C18CB4"
+    },
+    "term": [
+      "#111219",
+      "#C96A85",
+      "#A49BC5",
+      "#D5A0B5",
+      "#A0B2DF",
+      "#C18CB4",
+      "#AFC4E8",
+      "#C8CEDD",
+      "#484C60",
+      "#E7879B",
+      "#B5A9D2",
+      "#E3B6C8",
+      "#B5C5E9",
+      "#D3A3CD",
+      "#BED4EF",
+      "#E7EAF4"
+    ]
+  },
+  "light": {
+    "surface_dim": "#101118",
+    "surface": "#181A22",
+    "surface_bright": "#41465A",
+    "surface_container_lowest": "#111219",
+    "surface_container_low": "#232633",
+    "surface_container": "#2D3142",
+    "surface_container_high": "#383C50",
+    "surface_container_highest": "#484C60",
+    "on_surface": "#E7EAF4",
+    "on_surface_variant": "#C8CEDD",
+    "outline": "#AFC4E8",
+    "outline_variant": "#715A68",
+    "error": "#E7879B",
+    "on_accent": "#171923",
+    "accents": {
+      "red": "#C96A85",
+      "orange": "#D78196",
+      "yellow": "#D5A0B5",
+      "green": "#A49BC5",
+      "teal": "#8DA8C6",
+      "cyan": "#AFC4E8",
+      "blue": "#A0B2DF",
+      "purple": "#C18CB4"
+    },
+    "term": [
+      "#111219",
+      "#C96A85",
+      "#A49BC5",
+      "#D5A0B5",
+      "#A0B2DF",
+      "#C18CB4",
+      "#AFC4E8",
+      "#C8CEDD",
+      "#484C60",
+      "#E7879B",
+      "#B5A9D2",
+      "#E3B6C8",
+      "#B5C5E9",
+      "#D3A3CD",
+      "#BED4EF",
+      "#E7EAF4"
+    ]
+  }
+}

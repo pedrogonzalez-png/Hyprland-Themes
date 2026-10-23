@@ -1,0 +1,104 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": null,
+  "display": {
+    "separator": "  │  ",
+    "color": {
+      "title": "#FFE76C",
+      "keys": "#FF389F",
+      "output": "#F9E8FD",
+      "separator": "#B876D2"
+    },
+    "key": {
+      "width": 12
+    },
+    "percent": {
+      "type": 9,
+      "color": {
+        "green": "#00E5DF",
+        "yellow": "#FDF24F",
+        "red": "#FF389F"
+      }
+    }
+  },
+  "modules": [
+    {
+      "type": "custom",
+      "key": " ",
+      "format": "{##00E5DF}━━ HOTLINE MIAMI ━━━━━━━━━━━━━━━━━━━━━{#}"
+    },
+    "title",
+    "separator",
+    {
+      "type": "os",
+      "key": "Sistema",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "board",
+      "key": "Placa-mae",
+      "keyColor": "#00E5DF"
+    },
+    {
+      "type": "kernel",
+      "key": "Kernel",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "uptime",
+      "key": "Ligado",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "packages",
+      "key": "Pacotes",
+      "keyColor": "#00E5DF"
+    },
+    {
+      "type": "shell",
+      "key": "Shell",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "display",
+      "key": "Monitor",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "wm",
+      "key": "Desktop",
+      "keyColor": "#00E5DF"
+    },
+    {
+      "type": "terminal",
+      "key": "Terminal",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "cpu",
+      "key": "CPU",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "gpu",
+      "key": "GPU",
+      "keyColor": "#00E5DF"
+    },
+    {
+      "type": "memory",
+      "key": "RAM",
+      "keyColor": "#FF389F"
+    },
+    {
+      "type": "disk",
+      "key": "Disco",
+      "keyColor": "#FF389F"
+    },
+    "break",
+    {
+      "type": "custom",
+      "key": " ",
+      "format": "{##FF389F}━━━{#}  {##00E5DF}━━━{#}  {##FDF24F}━━━{#}  {##FFE76C}━━━{#}"
+    }
+  ]
+}

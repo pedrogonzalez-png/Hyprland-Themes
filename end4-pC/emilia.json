@@ -1,0 +1,98 @@
+
+{
+  "_help": "Emilia - Re:Zero | Purple Abyss & Ice. UI escura em ambos os modos. Transparencia preservada.",
+  "name": "Emilia",
+  "defaults": {
+    "primary": "purple",
+    "secondary": "cyan",
+    "tertiary": "blue"
+  },
+  "dark": {
+    "surface_dim": "#11091F",
+    "surface": "#1A0F30",
+    "surface_bright": "#4F2C72",
+    "surface_container_lowest": "#130A25",
+    "surface_container_low": "#201138",
+    "surface_container": "#291643",
+    "surface_container_high": "#341C53",
+    "surface_container_highest": "#442568",
+    "on_surface": "#D6E8FF",
+    "on_surface_variant": "#B8CBEF",
+    "outline": "#A78CCF",
+    "outline_variant": "#715492",
+    "error": "#ED8BC2",
+    "on_accent": "#170B2A",
+    "accents": {
+      "red": "#E786CA",
+      "orange": "#B477F0",
+      "yellow": "#C69AFF",
+      "green": "#899AFA",
+      "teal": "#77B2F9",
+      "cyan": "#76C7FF",
+      "blue": "#91A9FF",
+      "purple": "#B787FF"
+    },
+    "term": [
+      "#130A25",
+      "#E786CA",
+      "#899AFA",
+      "#C69AFF",
+      "#91A9FF",
+      "#B787FF",
+      "#76C7FF",
+      "#B8CBEF",
+      "#442568",
+      "#E786CA",
+      "#899AFA",
+      "#C69AFF",
+      "#91A9FF",
+      "#B787FF",
+      "#77B2F9",
+      "#D6E8FF"
+    ]
+  },
+  "light": {
+    "surface_dim": "#11091F",
+    "surface": "#1A0F30",
+    "surface_bright": "#4F2C72",
+    "surface_container_lowest": "#130A25",
+    "surface_container_low": "#201138",
+    "surface_container": "#291643",
+    "surface_container_high": "#341C53",
+    "surface_container_highest": "#442568",
+    "on_surface": "#D6E8FF",
+    "on_surface_variant": "#B8CBEF",
+    "outline": "#A78CCF",
+    "outline_variant": "#715492",
+    "error": "#ED8BC2",
+    "on_accent": "#170B2A",
+    "accents": {
+      "red": "#E786CA",
+      "orange": "#B477F0",
+      "yellow": "#C69AFF",
+      "green": "#899AFA",
+      "teal": "#77B2F9",
+      "cyan": "#76C7FF",
+      "blue": "#91A9FF",
+      "purple": "#B787FF"
+    },
+    "term": [
+      "#130A25",
+      "#E786CA",
+      "#899AFA",
+      "#C69AFF",
+      "#91A9FF",
+      "#B787FF",
+      "#76C7FF",
+      "#B8CBEF",
+      "#442568",
+      "#E786CA",
+      "#899AFA",
+      "#C69AFF",
+      "#91A9FF",
+      "#B787FF",
+      "#77B2F9",
+      "#D6E8FF"
+    ]
+  }
+}

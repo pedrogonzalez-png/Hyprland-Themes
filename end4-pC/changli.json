@@ -1,0 +1,98 @@
+
+{
+  "_help": "Changli - Phoenix Ember | Dark UI inspired by Wuthering Waves for end4-pC.",
+  "name": "Changli",
+  "defaults": {
+    "primary": "orange",
+    "secondary": "red",
+    "tertiary": "yellow"
+  },
+  "dark": {
+    "surface_dim": "#110A0B",
+    "surface": "#1A0F10",
+    "surface_bright": "#50302C",
+    "surface_container_lowest": "#140B0C",
+    "surface_container_low": "#241415",
+    "surface_container": "#302020",
+    "surface_container_high": "#3A2020",
+    "surface_container_highest": "#4A2A28",
+    "on_surface": "#F7E7D8",
+    "on_surface_variant": "#D7B7A5",
+    "outline": "#BC8D77",
+    "outline_variant": "#6F4940",
+    "error": "#E47873",
+    "on_accent": "#1A0F10",
+    "accents": {
+      "red": "#E17F72",
+      "orange": "#C96A42",
+      "yellow": "#E3B37A",
+      "green": "#C99A79",
+      "teal": "#D18C78",
+      "cyan": "#E5AB92",
+      "blue": "#C98370",
+      "purple": "#B97378"
+    },
+    "term": [
+      "#140B0C",
+      "#E17F72",
+      "#C99A79",
+      "#E3B37A",
+      "#C98370",
+      "#B97378",
+      "#E5AB92",
+      "#D7B7A5",
+      "#4A2A28",
+      "#E47873",
+      "#D5AA87",
+      "#F1C79A",
+      "#DEA08A",
+      "#D99496",
+      "#EABCA5",
+      "#F7E7D8"
+    ]
+  },
+  "light": {
+    "surface_dim": "#110A0B",
+    "surface": "#1A0F10",
+    "surface_bright": "#50302C",
+    "surface_container_lowest": "#140B0C",
+    "surface_container_low": "#241415",
+    "surface_container": "#302020",
+    "surface_container_high": "#3A2020",
+    "surface_container_highest": "#4A2A28",
+    "on_surface": "#F7E7D8",
+    "on_surface_variant": "#D7B7A5",
+    "outline": "#BC8D77",
+    "outline_variant": "#6F4940",
+    "error": "#E47873",
+    "on_accent": "#1A0F10",
+    "accents": {
+      "red": "#E17F72",
+      "orange": "#C96A42",
+      "yellow": "#E3B37A",
+      "green": "#C99A79",
+      "teal": "#D18C78",
+      "cyan": "#E5AB92",
+      "blue": "#C98370",
+      "purple": "#B97378"
+    },
+    "term": [
+      "#140B0C",
+      "#E17F72",
+      "#C99A79",
+      "#E3B37A",
+      "#C98370",
+      "#B97378",
+      "#E5AB92",
+      "#D7B7A5",
+      "#4A2A28",
+      "#E47873",
+      "#D5AA87",
+      "#F1C79A",
+      "#DEA08A",
+      "#D99496",
+      "#EABCA5",
+      "#F7E7D8"
+    ]
+  }
+}

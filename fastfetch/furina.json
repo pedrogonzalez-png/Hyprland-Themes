@@ -1,0 +1,104 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": null,
+  "display": {
+    "separator": "  │  ",
+    "color": {
+      "title": "#EDF8FF",
+      "keys": "#70BDEC",
+      "output": "#F1F7FF",
+      "separator": "#5C97C8"
+    },
+    "key": {
+      "width": 12
+    },
+    "percent": {
+      "type": 9,
+      "color": {
+        "green": "#70BDEC",
+        "yellow": "#F5DCAC",
+        "red": "#A4D9F8"
+      }
+    }
+  },
+  "modules": [
+    {
+      "type": "custom",
+      "key": " ",
+      "format": "{##F5DCAC}━━ FURINA ━━━━━━━━━━━━━━━━━━━━━{#}"
+    },
+    "title",
+    "separator",
+    {
+      "type": "os",
+      "key": "Sistema",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "board",
+      "key": "Placa-mae",
+      "keyColor": "#F5DCAC"
+    },
+    {
+      "type": "kernel",
+      "key": "Kernel",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "uptime",
+      "key": "Ligado",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "packages",
+      "key": "Pacotes",
+      "keyColor": "#F5DCAC"
+    },
+    {
+      "type": "shell",
+      "key": "Shell",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "display",
+      "key": "Monitor",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "wm",
+      "key": "Desktop",
+      "keyColor": "#F5DCAC"
+    },
+    {
+      "type": "terminal",
+      "key": "Terminal",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "cpu",
+      "key": "CPU",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "gpu",
+      "key": "GPU",
+      "keyColor": "#F5DCAC"
+    },
+    {
+      "type": "memory",
+      "key": "RAM",
+      "keyColor": "#70BDEC"
+    },
+    {
+      "type": "disk",
+      "key": "Disco",
+      "keyColor": "#70BDEC"
+    },
+    "break",
+    {
+      "type": "custom",
+      "key": " ",
+      "format": "{##70BDEC}━━━{#}  {##F5DCAC}━━━{#}  {##A4D9F8}━━━{#}  {##EDF8FF}━━━{#}"
+    }
+  ]
+}
